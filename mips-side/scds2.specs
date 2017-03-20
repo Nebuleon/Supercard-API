@@ -1,0 +1,9 @@
+%rename link                old_link
+
+*link:
+%(old_link) -T %:getenv(SCDS2_TOOLS /scds2.ld) --gc-sections
+
+*startfile:
+%:getenv(SCDS2_TOOLS /scds2_start%O)
+
+*endfile:

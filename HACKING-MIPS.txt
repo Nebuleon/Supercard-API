@@ -1,0 +1,95 @@
+With these instructions, you'll be able to rebuild the toolchain needed to compile MIPS executables (.plg plugins) for the Supercard DSTwo.
+
+If all you want is to set up a pre-built toolchain, see the file INSTALL-MIPS.txt.
+
+-- Step 1: Set up the MIPS side tools --
+
+1. Decide which directory will contain the MIPS side on your local filesystem.
+
+   NOTE: IT IS VERY IMPORTANT THAT THIS PATH NOT CONTAIN ANY SPACES. 'make' DOES NOT SUPPORT PATHS WITH SPACES.
+
+   Using <scds2 tools directory> as a placeholder for the chosen name, use the following commands to create it and set it as your DSTwo tools directory:
+
+ $ export SCDS2_TOOLS=<scds2 tools directory>
+ $ mkdir -p $SCDS2_TOOLS
+
+   If you decided to extract the DSTwo tools outside of your home directory, use 'sudo' before 'mkdir' above, and also complete step 2. Otherwise, go to step 3.
+
+2. Make the extraction directory writable by your user. On UNIX, each user also has a group with the user's name, containing just that user. The owner user can stay 'root'.
+
+ $ sudo chown root:$(whoami) $SCDS2_TOOLS
+ $ sudo chmod 775 $SCDS2_TOOLS
+
+3. Add the following line to your shell's initialisation file (such as $HOME/.bashrc):
+
+   export SCDS2_TOOLS=<scds2 tools directory>
+
+4. Copy the MIPS side into the directory you chose.
+
+-- Step 2: Building the MIPS toolchain --
+
+The toolchain contains a cross-compiler, i.e. a compiler for your machine that produces MIPS executables that your machine may or may not run.
+
+More precisely, it's a bare-metal mipsel (MIPS little-endian) 32-bit ELF compiler. The standard library is provided by the DSTwo tools, described above, and it's statically-linked into every executable as required by the plugin system.
+
+The compiler will be at the following location, which may be referenced in Makefiles:
+
+   $(SCDS2_TOOLCHAIN)/bin/mipsel-scds2-elf-gcc
+
+Here's how you'll build this toolchain.
+
+1. Install crosstool-ng (at any path) as outlined in the following page:
+
+   http://crosstool-ng.org/#using_a_released_version
+
+   The instructions call for using './configure' with a certain installation path. Remember this path. It's referenced below as <install>.
+
+   You may need to install 'help2man' to build crosstool-ng. Your Linux distribution may provide this in a package called 'help2man'. Refer to the documentation for your package manager to install this dependency.
+
+2. Decide which directory will contain the toolchain on your local filesystem.
+
+   NOTE: IT IS VERY IMPORTANT THAT THIS PATH NOT CONTAIN ANY SPACES. 'make' DOES NOT SUPPORT PATHS WITH SPACES.
+
+   Using <scds2 toolchain directory> as a placeholder for the chosen name, use the following commands to create it and set it as your toolchain directory:
+
+ $ export SCDS2_TOOLCHAIN=<scds2 toolchain directory>
+ $ mkdir -p $SCDS2_TOOLCHAIN
+
+   If you decided to build the toolchain outside of your home directory, use 'sudo' before 'mkdir' above, and also complete step 3. Otherwise, go to step 4.
+
+3. Make the build directory writable by your user. On UNIX, each user also has a group with the user's name, containing just that user. The owner user can stay 'root'.
+
+ $ sudo chown root:$(whoami) $SCDS2_TOOLCHAIN
+ $ sudo chmod 775 $SCDS2_TOOLCHAIN
+
+4. Add the following line to your shell's initialisation file (such as $HOME/.bashrc):
+
+   export SCDS2_TOOLCHAIN=<scds2 toolchain directory>
+
+5. Edit the file called 'crosstool-ng-config' and change the line containing
+
+   CT_PREFIX_DIR="/opt/scds2-toolchain"
+
+   to
+
+   CT_PREFIX_DIR="<scds2 toolchain directory>"
+
+6. Copy crosstool-ng-config to <install>/.config - this will instruct crosstool-ng to build the proper cross-compiler at the proper location.
+
+7. Start the build:
+
+ $ cd <install>
+ $ ct-ng build
+
+   You may build the tarball for the toolchain like so (instructions courtesy of https://wiki.debian.org/ReproducibleBuilds/Howto and subpages):
+
+ $ cd <scds2 toolchain directory>
+ $ find . -print0 | LC_ALL=C sort -z | tar --owner=root --group=root --numeric-owner --no-recursion --null -T - -cvjf $HOME/scds2-gcc-VERSION.tar.bz2
+
+-- Step 3: Rebuilding libraries --
+
+After changes to the source code under mips-side/libsrc/, run this command in the mips-side directory:
+
+  $ make clean; make install
+
+The final products of the build, which are static libraries (*.a), will be copied to $SCDS2_TOOLS/lib/.

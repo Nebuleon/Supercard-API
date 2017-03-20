@@ -1,0 +1,44 @@
+ifeq ($(strip $(SCDS2_TOOLCHAIN)),)
+$(error "Please set SCDS2_TOOLCHAIN in your environment. export SCDS2_TOOLCHAIN=<path to scds2 toolchain>")
+endif
+
+PREFIX         := $(SCDS2_TOOLCHAIN)/bin/mipsel-scds2-elf-
+
+export CC      := $(PREFIX)gcc
+export LD      := $(PREFIX)gcc
+export AS      := $(PREFIX)as
+export AR      := $(PREFIX)ar
+export OBJCOPY := $(PREFIX)objcopy
+export STRIP   := $(PREFIX)strip
+export NM      := $(PREFIX)gcc-nm
+export RANLIB  := $(PREFIX)gcc-ranlib
+
+# NOTE: Some of these are empty now, but may be added to later.
+# Please use += to add to this value in project Makefiles.
+
+# Flags for compiling C code
+CFLAGS         += -I$(SCDS2_TOOLS)/include -G 0 -mno-abicalls -mno-long-calls -DSCDS2
+
+# Flags for assembling assembly code
+ASFLAGS        += -I$(SCDS2_TOOLS)/include -G 0 -DSCDS2
+
+# Linker flags
+LDFLAGS        += -specs=$(SCDS2_TOOLS)/scds2.specs -L$(SCDS2_TOOLS)/lib -lgcc
+
+%.plg: %.dat
+	$(SCDS2_TOOLS)/tools/makeplug $< $@
+
+%.dat: %.elf
+	$(OBJCOPY) -x -O binary $< $@
+
+%.elf:
+	$(LD) $(LDFLAGS) $^ $(LIBPATHS) $(LIBS) -o $@
+
+%.o: %.c
+	$(CC) $(CFLAGS) -c $< -o $@
+
+%.o: %.s
+	$(CC) $(ASFLAGS) -c $< -o $@
+
+%.o: %.S
+	$(CC) -D__ASSEMBLY__ $(ASFLAGS) -c $< -o $@

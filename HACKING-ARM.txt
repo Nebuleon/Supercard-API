@@ -1,0 +1,52 @@
+With these instructions, you'll be able to set up your development environment to compile ARM executables (.nds plugins) for general flashcarts, as well as the NDS-Supercard communication layer on the Supercard DSTwo.
+
+If all you want to do is compile MIPS executables (.plg plugins) for the Supercard DSTwo, you don't need this file.
+
+-- Setting up the devkitPro Nintendo DS toolchain --
+
+1. Set up devkitPro at /opt/devkitpro as outlined in the following page:
+
+   http://devkitpro.org/wiki/Getting_Started/devkitARM [validated with r45]
+
+   After creating the directory, use the following commands to make the directory owned by your user's group so that you can write into it as a regular user:
+
+ $ sudo chown root:$(whoami) /opt/devkitpro
+ $ sudo chmod 775 /opt/devkitpro
+
+2. Make sure to download and install all the devkitPro libraries for the Nintendo DS, all extracted into /opt/devkitpro/libnds:
+
+ $ mkdir -p /opt/devkitpro/libnds
+ $ cd /opt/devkitpro/libnds
+
+ - libnds
+   http://sourceforge.net/projects/devkitpro/files/libnds/ [validated with 1.5.9]
+
+ - libfat-nds
+   http://sourceforge.net/projects/devkitpro/files/libfat/ [validated with 1.0.13]
+   (Note: Make sure to get the libfat release for nds, not the others)
+
+ - dswifi
+   http://sourceforge.net/projects/devkitpro/files/dswifi/ [validated with 0.3.16]
+
+ - maxmod-nds
+   http://sourceforge.net/projects/devkitpro/files/maxmod/ [validated with 1.0.9]
+   (Note: Make sure to get the maxmod release for nds, not the others)
+
+ - filesystem
+   http://sourceforge.net/projects/devkitpro/files/filesystem/ [validated with 0.9.11]
+
+ - Default ARM7, to handle WiFi, audio and touchscreen input
+   https://sourceforge.net/projects/devkitpro/files/default_arm7/ [validated with 0.6.0]
+
+3. Make sure the environment variables DEVKITPRO and DEVKITARM exist in your shell's initialisation file (such as $HOME/.bashrc):
+
+ $ export DEVKITPRO=/opt/devkitpro
+ $ export DEVKITARM=$DEVKITPRO/devkitARM
+
+-- Rebuilding the ARM side --
+
+After changes to the source code under arm-side/arm9/ or arm-side/arm7/, run this command in the arm-side directory:
+
+  $ make clean; make install
+
+The final product of the build, arm-side.elf, will be copied to $SCDS2_TOOLS/tools/ds2_firmware.dat.

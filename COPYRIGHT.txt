@@ -1,0 +1,54 @@
+This file contains a summary of the copyrights in this codebase. It also
+refers to files containing the full text of licenses, where available.
+
+arm-side: Nebuleon Fumika, GPLv2 (GPLv2.txt)
+
+mips-side/
+  include: Nebuleon Fumika, GPLv2 (GPLv2.txt)
+    include/archdefs.h: Michael Anburaj, unknown
+    include/limits.h: Free Software Foundation, Inc., GPLv3 (GPLv3.txt)
+    include/mips.h: Michael Anburaj, unknown
+    include/mipsregs.h: Ralf Baechle; Silicon Graphics, Inc.; MIPS Technologies, Inc.; Maciej W. Rozycki, GPL (GPLv2.txt)
+    include/zconf.h: Jean-Loup Gailly, zlib license (zlib-license.txt)
+    include/zlib.h: Jean-Loup Gailly, zlib license (zlib-license.txt)
+  libsrc/libds2/
+    ds2_ds: Nebuleon Fumika, GPLv2 (GPLv2.txt)
+      ds2_ds/main.h: unknown
+    libc: Nebuleon Fumika, GPLv2 (GPLv2.txt)
+      libc/btowc.c: Rich Felker, unknown
+      libc/mb_internal.c: Rich Felker, public domain
+      libc/mb_internal.h: Rich Felker, public domain
+      libc/mblen.c: Rich Felker, public domain
+      libc/mbrlen.c: Rich Felker, public domain
+      libc/mbrtowc.c: Rich Felker, public domain
+      libc/mbsinit.c: Rich Felker, public domain
+      libc/mbsnrtowcs.c: Rich Felker, public domain
+      libc/mbsrtowcs.c: Rich Felker, public domain
+      libc/mbstowcs.c: Rich Felker, unknown
+      libc/mbtowc.c: Rich Felker, public domain
+      libc/mktime.c: Regents of the University of California, 4-clause BSD license (BSD-4.txt)
+      libc/rand.c: ISO C committee, unknown
+      libc/snprintf.c: Patrick Powell, custom license
+      libc/sscanf.c: unknown
+      libc/strftime.c: Arnold Robbins, public domain
+      libc/strptime.c: The NetBSD Foundation, Inc., 4-clause BSD license (BSD-4.txt)
+      libc/wcrtomb.c: Rich Felker, public domain
+      libc/wcsnrtombs.c: Rich Felker, public domain
+      libc/wcsrtombs.c: Rich Felker, public domain
+      libc/wcstombs.c: Rich Felker, unknown
+      libc/wctob.c: Rich Felker, unknown
+      libc/wctomb.c: Rich Felker, public domain
+    libfat: Michael "Chishm" Chisholm, 3-clause BSD license (BSD-3.txt)
+      libfat/ds2_msc.c: unknown
+      libfat/ds2_msc_api.c: unknown
+      libfat/ds2_msc_api.h: unknown
+      libfat/ds2_msc_config.h: Ingenic Semiconductor, Inc., all rights reserved
+      libfat/ds2_msc_core.c: unknown
+      libfat/ds2_msc_core.h: Ingenic Semiconductor, Inc., all rights reserved
+      libfat/ds2_msc_hardware.c: unknown
+      libfat/ds2_msc_protocol.c: unknown
+      libfat/ds2_msc_protocol.h: Ingenic Semiconductor, Inc., all rights reserved
+      libfat/lock.c: unknown
+      libfat/lock.h: Sven Peter, 3-clause BSD license (BSD-3.txt)
+    stdio_libfat: Nebuleon Fumika, GPLv2 (GPLv2.txt)
+  libsrc/zlib: Jean-Loup Gailly; Mark Adler, zlib license (zlib-license.txt)
