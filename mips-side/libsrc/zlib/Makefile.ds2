@@ -40,6 +40,7 @@ clean:
 
 install:
 	-mkdir $(SCDS2_TOOLS)/lib
+	cp zlib.h zconf.h $(SCDS2_TOOLS)/include
 	cp libz.a $(SCDS2_TOOLS)/lib
 
 %.o: %.c
