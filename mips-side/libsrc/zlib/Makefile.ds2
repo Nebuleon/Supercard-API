@@ -20,11 +20,7 @@ INCLUDES := -I../../include
 SOURCE_DIRS := .
 
 CFLAGS   := -Wall -G 0 -O2 -fomit-frame-pointer -ffunction-sections \
-            $(INCLUDES) -DZ_HAVE_UNISTD_H
-
-# Force the use of the memcpy function inside the standard library itself,
-# to reuse its code in the instruction cache.
-# CFLAGS   += -mmemcpy
+            $(INCLUDES) -DNO_FSEEKO -DHAVE_HIDDEN
 
 CFILES   := $(foreach dir, $(SOURCE_DIRS), $(wildcard $(dir)/*.c))
 
