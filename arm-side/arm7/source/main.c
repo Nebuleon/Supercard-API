@@ -35,6 +35,8 @@ static uint8_t rtc_data[7];
  * usage in fifo_value_handler. */
 static touchPosition touch;
 
+static uint8_t prev_backlights, new_backlights;
+
 extern uint8_t arm7_loader;
 extern uint8_t arm7_loader_end;
 
@@ -67,12 +69,8 @@ void fifo_value_handler(uint32_t value, void* userdata)
 			break;
 
 		case IPC_SET_BACKLIGHT:
-		{
-			uint32_t backlight_data = (value & SET_BACKLIGHT_DATA_MASK) >> SET_BACKLIGHT_DATA_BIT;
-			writePowerManagement(PM_CONTROL_REG,
-				(readPowerManagement(PM_CONTROL_REG) & ~0xC) | ((backlight_data & 0x3) << 2));
+			new_backlights = (value & SET_BACKLIGHT_DATA_MASK) >> SET_BACKLIGHT_DATA_BIT;
 			break;
-		}
 
 		case IPC_START_RESET:
 		{
@@ -123,6 +121,23 @@ void fifo_value_handler(uint32_t value, void* userdata)
 	}
 }
 
+/*
+ * This handler sets the state of the Nintendo DS's backlights only once per
+ * frame, if required. In addition to avoiding tearing on both screens, this
+ * prevents changing the status of the backlights too often which, according
+ * to GBATEK, could damage hardware.
+ */
+void vblank_handler(void)
+{
+	if (new_backlights != prev_backlights) {
+		int section = enterCriticalSection();
+		writePowerManagement(PM_CONTROL_REG,
+			(readPowerManagement(PM_CONTROL_REG) & ~0xC) | ((new_backlights & 0x3) << 2));
+		prev_backlights = new_backlights;
+		leaveCriticalSection(section);
+	}
+}
+
 int main()
 {
 	/* Clear sound registers. */
@@ -150,6 +165,9 @@ int main()
 	mmInstall(FIFO_MAXMOD);
 	installSystemFIFO();
 	fifoSetValue32Handler(FIFO_USER_01, fifo_value_handler, NULL);
+
+	irqSet(IRQ_VBLANK, vblank_handler);
+	irqEnable(IRQ_VBLANK);
 
 	/* The ARM7 will be mostly idle, only waking up for interrupts. */
 	while (1) {
