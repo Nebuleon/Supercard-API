@@ -19,7 +19,8 @@ INCLUDES := -I../../include -iquote. -Ilibfat/include -iquotelibfat/source
 
 SOURCE_DIRS := . libc ds2_ds libfat/source stdio_libfat
 
-CFLAGS   := -Wall -G 0 -O2 -fomit-frame-pointer $(INCLUDES)
+CFLAGS   := -Wall -G 0 -O2 -fomit-frame-pointer -ffunction-sections \
+            $(INCLUDES)
 
 # Force the use of the memcpy function inside the standard library itself,
 # to reuse its code in the instruction cache.
