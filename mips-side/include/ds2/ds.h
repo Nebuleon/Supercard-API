@@ -246,7 +246,7 @@ extern int DS2_AwaitScreenUpdate(enum DS_Engine engine);
  * Because the Main Screen may be multiple buffered, the returned address is
  * subject to change after calls to DS2_FlipMainScreen.
  */
-extern uint16_t* DS2_GetMainScreen();
+extern uint16_t* DS2_GetMainScreen(void);
 
 /* Returns the address of the Sub Screen buffer. Following the returned
  * address, there are DS_SCREEN_WIDTH * DS_SCREEN_HEIGHT pixels, each 16 bits
@@ -255,7 +255,7 @@ extern uint16_t* DS2_GetMainScreen();
  * Because the Sub Screen is single-buffered, the returned address is
  * guaranteed not to change during the course of program execution.
  */
-extern uint16_t* DS2_GetSubScreen();
+extern uint16_t* DS2_GetSubScreen(void);
 
 /* Returns the address of the current buffer of the given DS engine. Following
  * the returned address, if the value of 'engine' is valid, there are
