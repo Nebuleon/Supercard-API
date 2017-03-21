@@ -1,0 +1,162 @@
+Video on the Supercard DSTwo is displayed on the Nintendo DS's two screens, but more importantly, on its two 2D engines, the Main Engine and the Sub Engine.
+
+=== The Sub Engine ===
+
+The Sub Engine is much less powerful than the Main Engine. Among other things, it cannot handle more than 128 KiB of VRAM, so it cannot handle page flipping (double-buffering or triple-buffering) for video frames.
+
+However, since it can handle 128 KiB of VRAM, and a video frame is 96 KiB, it has 32 KiB left for a console. This console is used by anything that writes to 'stdout' and 'stderr', for example 'printf' and 'fprintf'.
+
+Writes to 'stdout' and 'stderr' flip the Sub Engine to the console, preserving the contents of the previous video frame; writes to the video frame flip the Sub Engine to it, preserving the contents of the console.
+
+=== The Main Engine ===
+
+The Main Engine can handle up to 512 KiB of VRAM, and its 2D core can additionally send VRAM directly to the LCD in framebuffer mode. This is used to implement page flipping, in the form of triple-buffering.
+
+This allows the Supercard DSTwo to draw a new screen while the previous one is being sent without worrying about causing screen tearing, but only on the Main Engine.
+
+=== Engines and screens ===
+
+Initially (just before ds2_main starts), the Main Screen is at the bottom (so touchscreen input overlays it), and the Sub Screen is at the top.
+
+Instead of copying the Main Screen to the Sub Screen and the Sub Screen to the Main Screen if the screens need to be swapped, they can be swapped using a feature of the Nintendo DS itself. This changes the mapping of the screens, but doesn't change the mapping of the engines.
+
+The backlights can be selectively turned off for the screens using another feature of the Nintendo DS, but this one works with screens, not engines, so turning off the backlight for the Lower Screen doesn't affect the Upper Screen if swapping is toggled later on.
+
+As such, most functions dealing with video output will really designate the screen using its engine, except DS2_SetScreenBacklights.
+
+=== Pixel formats ===
+
+The Nintendo DS displays BGR 555 pixels, with the high bit indicating opacity (i.e. 1 displays the pixel, 0 hides it). Circuitry inside the Supercard DSTwo fixes the high bit of any video frame sent to the Nintendo DS so that it's opaque, not transparent.
+
+Additionally, the Supercard DSTwo can handle converting RGB 555 video to BGR 555. This functionality allows an application to have RGB 555 framebuffers which are then transparently converted to BGR 555 for display.
+
+The default pixel format is BGR 555 and can be changed per engine.
+
+=== Setting pixels ===
+
+After getting the address of the top-left pixel of a screen (see DS2_GetMainScreen and DS2_GetSubScreen, below), a pixel at coordinates (x, y) can be set to a certain color using code like this:
+
+*(screen + y * DS_SCREEN_WIDTH + x) = BGR555(31, 0, 22);
+
+=== Useful macros ===
+
+#include <ds2/ds.h>
+
+DS_SCREEN_WIDTH
+
+    Defined to the width of one Nintendo DS screen, in pixels.
+
+DS_SCREEN_HEIGHT
+
+    Defined to the height of one Nintendo DS screen, in pixels.
+
+RGB555(r, g, b)
+
+    Makes an RGB 555 pixel out of the three given color components, each in the range 0..31.
+
+    To avoid generating unnecessary machine code, bit 15 (the one describing opacity) is not set.
+
+BGR555(b, g, r)
+
+    Similar to RGB555, but for BGR 555, the default pixel format.
+
+RGB555_R(pixel)
+RGB555_G(pixel)
+RGB555_R(pixel)
+BGR555_R(pixel)
+BGR555_G(pixel)
+BGR555_R(pixel)
+
+    Extract color components, each in the range 0..31, from an RGB 555 or BGR 555 pixel.
+
+=== Functions ===
+
+#include <ds2/ds.h>
+
+int DS2_FillScreen(enum DS_Engine engine, uint16_t color);
+
+    Quickly sets all pixels of the active screen of the given engine to the same color, but does not update or flip the screen.
+
+int DS2_UpdateScreen(enum DS_Engine engine);
+
+    Begins to send the active screen of the given engine to the Nintendo DS, then returns, keeping the same screen active. This allows the application to write to the active screen again, starting with the same contents.
+
+    As the screen is being sent, which takes approximately 21 milliseconds, the Supercard DSTwo may see new contents that are being written for some lines of the screen, but not others. To prevent this from happening, use the DS2_AwaitScreenUpdate function on the same engine before writing any new contents.
+
+int DS2_FlipMainScreen(void);
+
+    Begins to send the active screen of the Main Engine to the Nintendo DS, then returns with a new screen active. This allows the application to write a whole new screen. The initial contents of that new screen are somewhat defined: it is either fully black, or something that the application wrote in the past.
+
+    Sending the screen will take approximately 21 milliseconds.
+
+int DS2_UpdateScreenPart(enum DS_Engine engine, size_t start_y, size_t end_y);
+
+    Like DS2_UpdateScreen, but only the given range of rows (start_y <= y < end_y) of pixels is sent. Sending this range of rows takes up to 21 milliseconds.
+
+int DS2_FlipMainScreenPart(size_t start_y, size_t end_y);
+
+    Like DS2_FlipMainScreen, but only the given range of rows (start_y <= y < end_y) of pixels is sent. Anything not in this range is left as it was, with either black pixels or the rest of the screen left by the application in the past.
+
+int DS2_AwaitScreenUpdate(enum DS_Engine engine);
+
+    Waits for all lines of the active screen of the given engine to have been sent to the Nintendo DS before returning.
+
+    If a call to this function is inserted before writes to the active screen, there is no possibility of the transmission grabbing any new pixels mixed with old pixels, preventing one cause of screen tearing.
+
+uint16_t* DS2_GetMainScreen(void);
+
+    Returns a pointer to the upper-left pixel of the active screen of the Main Engine.
+
+uint16_t* DS2_GetSubScreen(void);
+
+    Returns a pointer to the upper-left pixel of the Sub Screen.
+
+uint16_t* DS2_GetScreen(enum DS_Engine engine);
+
+    Forwards to DS2_GetMainScreen or DS2_GetSubScreen as appropriate.
+
+enum DS2_PixelFormat DS2_GetPixelFormat(enum DS_Engine engine);
+
+    Returns the pixel format used for screens on the given engine, either DS2_PIXEL_FORMAT_BGR555 (the default) or DS2_PIXEL_FORMAT_RGB555.
+
+int DS2_SetPixelFormat(enum DS_Engine engine, enum DS2_PixelFormat format);
+
+    Sets the pixel format used for screens on the given engine.
+
+bool DS2_GetScreenSwap(void);
+
+    Returns either of the following:
+
+    true: The Main Screen is at the bottom; the Sub Screen is at the top.
+    false: The Main Screen is at the top; the Sub Screen is at the bottom.
+
+    By default, screens are not swapped.
+
+void DS2_SetScreenSwap(bool swap);
+
+    Sets the state of screen swapping on the Nintendo DS, as in DS2_GetScreenSwap, at the next vertical blanking period to avoid tearing on both screens.
+
+enum DS_Screen DS2_GetScreenBacklights(void);
+
+    Returns a bit mask of the screens (very important; this function does not deal with engines) whose backlights are on.
+
+int DS2_SetScreenBacklights(enum DS_Screen screens);
+
+    Sets the state of screen backlights on the Nintendo DS, as in DS2_GetScreenBacklights, at the next vertical blanking period to avoid tearing on both screens.
+
+void DS2_AwaitVBlank(void);
+
+    Waits for the next vertical blanking period on the Nintendo DS.
+
+#include <stdio.h>
+
+int printf(const char* restrict format, ...);
+int fprintf(FILE* restrict handle, const char* restrict format, ...); /* handle == stdout, handle = stderr */
+size_t fwrite(const void* restrict src, size_t size, size_t n, FILE* restrict handle); /* handle == stdout, handle = stderr */
+...
+
+    Switches to a 32x24 text console on the Sub Engine, if required, then writes text to it.
+
+    If any part of the video frame on the Sub Engine is still being sent to the Nintendo DS, the console will be displayed very briefly, then the video frame will be displayed again. If mixing video frames with console text, it may be wise to call DS2_AwaitScreenUpdate(DS_ENGINE_SUB); before displaying any console text.
+
+    Sending a packet of 508 bytes of text takes approximately 104 microseconds. So a full screen of text, 32x24 = 768 bytes, will be sent in approximately 208 microseconds.

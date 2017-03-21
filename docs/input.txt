@@ -1,0 +1,122 @@
+Button and touchscreen input on the Supercard DSTwo is received from the Nintendo DS's ARM9 and ARM7 processors every 1/60 of a second.
+
+Since the Supercard DSTwo application may or may not get input that often, button presses and releases are queued for when it does get input, allowing it to catch even brief moments where the user presses or releases a button.
+
+=== Getting current input ===
+
+Current input refers to what the Supercard DSTwo last received from the Nintendo DS, with pending button presses and releases applied. Getting current input does not wait for the next reading to be sent by the Nintendo DS.
+
+=== Waiting for input ===
+
+GUI applications will often wait for the user's inputs to continue. Many input-related functions are available which will wait for certain buttons to be pressed or released for you. They will first check current inputs and, if the inputs don't satisfy the condition, they will stop execution on the processor and only recheck the condition when an interrupt occurs, saving power.
+
+=== Checking if a button is pressed ===
+
+After grabbing some input from the Nintendo DS, either via DS2_GetInputState or DS2_AwaitInputChange, you can use the & operator to check if a certain button of interest is pressed. For example, let's get a snapshot of the current input and check whether X is pressed:
+
+    struct DS_InputState input;
+    DS2_GetInputState(&input);
+    if (input.buttons & DS_BUTTON_X) {
+        /* this code will be executed if X is pressed */
+    }
+
+=== Checking if a button is released ===
+
+Using code similar to the press check, it's possible to know if a button is released:
+
+    if (!(input.buttons & DS_BUTTON_X)) {
+        /* this code will be executed if X is released */
+    }
+
+=== Checking many buttons at once ===
+
+Using code similar to the one-button check, it's possible to check the state of many buttons at once.
+
+You can check whether any one (or more) of a set of buttons is pressed:
+
+    if (input.buttons & (DS_BUTTON_A | DS_BUTTON_B)) {
+        /* this code will be executed if at least A or B, possibly both, are pressed */
+    }
+
+You can check whether all of a set of buttons is pressed:
+
+    if ((input.buttons & (DS_BUTTON_A | DS_BUTTON_B)) == (DS_BUTTON_A | DS_BUTTON_B)) {
+        /* this code will be executed if both A and B are pressed */
+    }
+
+Inverting the conditions, you can check whether any one (or more) of a set of buttons is released:
+
+    if ((input.buttons & (DS_BUTTON_A | DS_BUTTON_B)) != (DS_BUTTON_A | DS_BUTTON_B)) {
+        /* this code will be executed if at least A or B, possibly both, are released */
+    }
+
+You can check whether all of a set of buttons is released:
+
+    if (!(input.buttons & (DS_BUTTON_A | DS_BUTTON_B))) {
+        /* this code will be executed if both A and B are released */
+    }
+
+=== Dealing with the touchscreen ===
+
+If DS_BUTTON_TOUCH is pressed, two values become meaningful in the DS_InputState structure, touch_x and touch_y. They are the last coordinates touched by the user on the bottom screen. These are not added to a list of pending coordinates, so any code that wants to check touchscreen coordinates should update as often as possible or use DS2_AwaitInputChange.
+
+    #include <stdint.h>
+    #include <stdio.h>
+
+    if (input.buttons & DS_BUTTON_TOUCH) {
+        printf("You are touching (%" PRIu8 ", %" PRIu8 ")\n", input.touch_x, input.touch_y);
+    }
+
+=== Dealing with the lid ===
+
+If DS_BUTTON_LID is pressed, that means the user closed the Nintendo DS. The application can take some actions to reduce power usage on the Supercard DSTwo here, including:
+
+- turn off the screens' backlights, possibly after clearing the screens' contents;
+- suspend audio playback and video output;
+- call DS2_AwaitNoButtonsIn(DS_BUTTON_LID).
+
+This does not apply to the Nintendo 2DS.
+
+=== Functions ===
+
+#include <ds2/ds.h>
+
+void DS2_GetInputState(struct DS_InputState* input_state);
+
+    Gets the current state of Nintendo DS input, writing the result into the DS_InputState structure whose address was passed in as an argument.
+
+void DS2_AwaitInputChange(struct DS_InputState* input_state);
+
+    Gets current input and waits for it to change. Writes the input after the change into the DS_InputState structure whose address was passed in as an argument.
+
+void DS2_AwaitAllButtonsIn(uint16_t buttons);
+
+    Waits until all of the buttons in the given mask (made with | for more than one button) are pressed. On return, the user is pressing at least those buttons.
+
+void DS2_AwaitAnyButtonsIn(uint16_t buttons);
+
+    Waits until any of the buttons in the given mask (made with | for more than one button) is pressed. On return, the user is pressing at least one of those buttons.
+
+void DS2_AwaitNotAllButtonsIn(uint16_t buttons);
+
+    Waits until any of the buttons in the given mask (made with | for more than one button) is released. On return, the user is not pressing at least one of those buttons.
+
+void DS2_AwaitNoButtonsIn(uint16_t buttons);
+
+    Waits until all of the buttons in the given mask (made with | for more than one button) are released. On return, the user is not pressing at least those buttons.
+
+void DS2_AwaitAnyButtons(void);
+
+    Waits until any button on the Nintendo DS is pressed. On return, the user is pressing at least one button.
+
+void DS2_AwaitNoButtons(void);
+
+    Waits until all buttons on the Nintendo DS are released. On return, the user is pressing nothing.
+
+uint16_t DS2_GetNewlyPressed(const struct DS_InputState* old_state, const struct DS_InputState* new_state);
+
+    A utility function that computes what buttons have been pressed in new_state since the previous snapshot in old_state. As usual, the result can be tested with &.
+
+uint16_t DS2_GetNewlyReleased(const struct DS_InputState* old_state, const struct DS_InputState* new_state);
+
+    Same as DS2_GetNewlyPressed, but for buttons that have been released.

@@ -1,0 +1,64 @@
+Audio on the Supercard DSTwo is sent to the Nintendo DS's ARM7 processor, which controls the audio hardware. The ARM9 processor sees the audio data first.
+
+Frequencies ranging from 1 Hz (not very useful) to 65535 Hz are available. More often, you will use these frequencies (Hz): 8000, 11025, 12000, 22050, 24000, 32768, 44100, 48000.
+
+Audio data has the highest priority to be sent to the Nintendo DS, so, if submitted on the Supercard, it may be sent in-between lines of video, sent approximately every 104 microseconds. So a frame of audio data will be sent up to 208 microseconds late, then be communicated to the ARM7 processor.
+
+Submitting more than 1 sample (= 1/frequency of a second) of audio at a time allows the Supercard to send the same audio to the Nintendo DS in fewer packets, allowing for smoother playback. The number of extra samples that may be submitted is called the buffer size, and it may be controlled by the application.
+
+Higher buffer sizes mean more latency, because the last sample that fills the buffer will be played much later than if using a lower buffer size. However, lower buffer sizes cause underruns which result in unpleasant crackling if the buffer cannot be filled in time.
+
+A reasonable buffer size is enough for 1/30 of a second of audio. You can simply divide the sound frequency by 30 to get the number of samples.
+
+=== Sample formats ===
+
+There are two sample formats that can be used on the Nintendo DS, a 16-bit signed PCM format and an 8-bit unsigned PCM format.
+
+The 16-bit signed PCM format represents each wave sample using values from -32768 to +32767, with 0 as the conventional middle for silence. -32768 and +32767 are the loudest values.
+
+The 8-bit unsigned PCM format represents each wave sample using values from 0 to 255, with 127 or 128 as the conventional middles for silence. 0 and 255 are the loudest values.
+
+=== Mono and stereo ===
+
+Mono audio represents each sample using only one value (of either format), but stereo audio represents each sample using two values (of either format), one for each channel: left, then right.
+
+So a sample in stereo 16-bit PCM might look like [-5401 -5401] if the two channels have the same loudness for a sample, or [-5401 -4427] if there is a degree of stereo separation. [-5401 -4427 -5266 -4248] represents two samples: -5401 on the left at time 0, -4427 on the right at time 0, -5266 on the left at time 1, -4248 on the right at time 1.
+
+=== Buffer fullness ===
+
+After getting an audio stream started, submitting some audio samples will fill the buffer, which will be drained by the Nintendo DS. The Supercard DSTwo will know from the Nintendo DS how many samples have been played and reduce the buffer fullness appropriately.
+
+The buffer fullness can be queried at any time and, depending on the value, more samples may need to be prepared quickly or the application can concentrate on rendering video instead.
+
+Keeping at least 16 samples in the buffer is essential: the ARM9 processor does not send fewer than 16 at a time to the ARM7 processor, so if the ARM9 processor grabs 15 samples, submitting 1 more will still result in 1 sample of silence. Depending on the application and the complexity of its audio generation, it may not be possible to fill the buffer fast enough after it reaches 16 samples, so buffering at least 32, or at least 64, may be necessary to avoid underruns.
+
+=== Functions ===
+
+#include <ds2/ds.h>
+
+int DS2_StartAudio(uint16_t frequency, uint16_t buffer_size, bool is_16bit, bool is_stereo);
+
+    Starts an audio output stream with the given parameters. See above for a discussion of the meaning of the parameters.
+
+size_t DS2_GetFreeAudioSamples();
+
+    Returns the number of audio samples that may still be submitted to the Supercard DSTwo's audio buffer without waiting. The buffer size minus the value returned by this function can be thought of as the buffer's fullness.
+
+int DS2_SubmitAudio(const void* data, size_t n);
+
+    Submits audio data to the Supercard DSTwo's audio buffer from the given (application) buffer.
+
+    'n' is in samples, not necessarily in bytes:
+
+    is_16bit | is_stereo | bytes in a sample
+    -----------------------------------------
+      false  |   false   | 1: uint8_t
+      false  |    true   | 2: uint8_t uint8_t
+       true  |   false   | 2: int16_t
+       true  |    true   | 4: int16_t int16_t
+
+    If the Supercard DSTwo's buffer cannot accommodate all 'n' samples, as many as can fit are submitted, then the Nintendo DS must report that some samples have been played before as many as can fit are submitted again, and so on until all 'n' samples are submitted to the Supercard DSTwo's buffer.
+
+void DS2_StopAudio(void);
+
+    Stops the previously-started audio stream completely, requesting that the Nintendo DS stop playing audio. The request is acquiesced within approximately 208 microseconds.
