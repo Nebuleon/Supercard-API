@@ -19,24 +19,24 @@ If all you want to do is compile MIPS executables (.plg plugins) for the Superca
  $ cd /opt/devkitpro/libnds
 
  - libnds
-   http://sourceforge.net/projects/devkitpro/files/libnds/ [validated with 1.5.9]
+   http://sourceforge.net/projects/devkitpro/files/libnds/ [validated with 1.6.2]
 
  - libfat-nds
-   http://sourceforge.net/projects/devkitpro/files/libfat/ [validated with 1.0.13]
+   http://sourceforge.net/projects/devkitpro/files/libfat/ [validated with 1.1.0]
    (Note: Make sure to get the libfat release for nds, not the others)
 
  - dswifi
-   http://sourceforge.net/projects/devkitpro/files/dswifi/ [validated with 0.3.16]
+   http://sourceforge.net/projects/devkitpro/files/dswifi/ [validated with 0.4.0]
 
  - maxmod-nds
-   http://sourceforge.net/projects/devkitpro/files/maxmod/ [validated with 1.0.9]
+   http://sourceforge.net/projects/devkitpro/files/maxmod/ [validated with 1.0.10]
    (Note: Make sure to get the maxmod release for nds, not the others)
 
  - filesystem
-   http://sourceforge.net/projects/devkitpro/files/filesystem/ [validated with 0.9.11]
+   http://sourceforge.net/projects/devkitpro/files/filesystem/ [validated with 0.9.13-1]
 
  - Default ARM7, to handle WiFi, audio and touchscreen input
-   https://sourceforge.net/projects/devkitpro/files/default_arm7/ [validated with 0.6.0]
+   https://sourceforge.net/projects/devkitpro/files/default_arm7/ [validated with 0.7.1]
 
 3. Make sure the environment variables DEVKITPRO and DEVKITARM exist in your shell's initialisation file (such as $HOME/.bashrc):
 
