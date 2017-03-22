@@ -42,11 +42,11 @@ size_t _video_encoding_0(const uint16_t* src, enum DS_Engine engine, uint_fast8_
 	if (!end) {
 		_send_video_reply(src, 504, engine);
 	} else {
-		/* Grab the final pixels of the screen into _global_reply, because the
+		/* Grab the final pixels of the screen into _ds2_ds.temp, because the
 		 * busy flag of the screen will be set to 0 and the application can be
 		 * writing to those final pixels immediately in parallel with DMA. */
-		memcpy(&_global_reply, src, pixel_count * sizeof(uint16_t));
-		_send_video_reply(&_global_reply, 504, engine);
+		memcpy(&_ds2_ds.temp, src, pixel_count * sizeof(uint16_t));
+		_send_video_reply(&_ds2_ds.temp, 504, engine);
 	}
 
 	return pixel_count;

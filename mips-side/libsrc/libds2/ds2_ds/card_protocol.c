@@ -35,19 +35,9 @@
 #define MIPS_VIDEO_ENCODINGS 1
 #define MIPS_AUDIO_ENCODINGS 1
 
-uint8_t _video_encodings_supported = MIPS_VIDEO_ENCODINGS;
-
-uint8_t _audio_encodings_supported = MIPS_AUDIO_ENCODINGS;
-
-volatile enum _mips_side_link_status _link_status = LINK_STATUS_NONE;
-
-void (*_current_protocol) (const union card_command*) = _link_establishment_protocol;
-
-uint32_t _pending_recvs = PENDING_RECV_ALL;
-
 void _add_pending_send(uint32_t mask)
 {
-	uint32_t sends_copy = _pending_sends;
+	uint32_t sends_copy = _ds2_ds.pending_sends;
 	if (sends_copy == 0 && mask != 0) {
 		/* We had nothing to send, but now we have something to send. Let the
 		 * Nintendo DS know; it will then send us commands to get the data. */
@@ -56,24 +46,24 @@ void _add_pending_send(uint32_t mask)
 		 * edge-triggered on the ARM side. This prepares us for the next time
 		 * the queue transitions from empty to busy, too. */
 		REG_CPLD_FIFO_STATE = 0;
-		_pending_sends = mask | PENDING_SEND_END;
+		_ds2_ds.pending_sends = mask | PENDING_SEND_END;
 	} else {
-		_pending_sends = sends_copy | mask;
+		_ds2_ds.pending_sends = sends_copy | mask;
 	}
 }
 
 void _remove_pending_send(uint32_t mask)
 {
-	_pending_sends &= ~mask;
+	_ds2_ds.pending_sends &= ~mask;
 }
 
 /* Must be protected by a critical section or be run with interrupts
  * disabled. */
 static uint32_t _take_pending_send(void)
 {
-	uint32_t sends = _pending_sends;
+	uint32_t sends = _ds2_ds.pending_sends;
 	uint32_t result = sends & (~sends + 1); /* Get the lowest set bit */
-	_pending_sends = sends & ~result; /* Remove it from the bitfield */
+	_ds2_ds.pending_sends = sends & ~result; /* Remove it from the bitfield */
 	return result;
 }
 
@@ -95,12 +85,12 @@ void _send_reply_4(uint32_t reply)
 void _send_reply(const void* reply, size_t reply_len)
 {
 	dcache_writeback_range(reply, reply_len);
-	dma_start(_ds2ds_dma_channel, reply, (void*) CPLD_FIFO_WRITE_NDSRDATA_BASE, reply_len);
+	dma_start(_ds2_ds.dma_channel, reply, (void*) CPLD_FIFO_WRITE_NDSRDATA_BASE, reply_len);
 }
 
 void _send_video_reply(const void* reply, size_t reply_len, enum DS_Engine engine)
 {
-	enum DS2_PixelFormat format = _video_pixel_formats[engine - 1];
+	enum DS2_PixelFormat format = _ds2_ds.vid_formats[engine - 1];
 	REG_CPLD_CTR = CPLD_CTR_FPGA_MODE | CPLD_CTR_FIX_VIDEO_EN
 	             | (format == DS2_PIXEL_FORMAT_RGB555 ? CPLD_CTR_FIX_VIDEO_RGB_EN : 0);
 
@@ -109,14 +99,14 @@ void _send_video_reply(const void* reply, size_t reply_len, enum DS_Engine engin
 
 static void _send_end(void)
 {
-	_global_reply.words[0] = DATA_KIND_NONE | DATA_BYTE_COUNT(0) | DATA_END;
-	_send_reply(&_global_reply, sizeof(_global_reply));
+	_ds2_ds.temp.words[0] = DATA_KIND_NONE | DATA_BYTE_COUNT(0) | DATA_END;
+	_send_reply(&_ds2_ds.temp, sizeof(_ds2_ds.temp));
 }
 
 void _link_establishment_protocol(const union card_command* command)
 {
 	if (command->bytes[0] == CARD_COMMAND_HELLO_BYTE) {
-		struct card_reply_hello* reply = (struct card_reply_hello*) _global_reply.bytes;
+		struct card_reply_hello* reply = (struct card_reply_hello*) _ds2_ds.temp.bytes;
 		size_t i;
 
 		reply->hello_value = SUPERCARD_HELLO_VALUE;
@@ -130,34 +120,48 @@ void _link_establishment_protocol(const union card_command* command)
 		_start_reply();
 		_send_reply(reply, 512);
 
-		if (command->hello.video_encodings_supported < _video_encodings_supported)
-			_video_encodings_supported = command->hello.video_encodings_supported;
+		_ds2_ds.vid_encodings_supported = MIPS_VIDEO_ENCODINGS;
+		if (command->hello.video_encodings_supported < _ds2_ds.vid_encodings_supported)
+			_ds2_ds.vid_encodings_supported = command->hello.video_encodings_supported;
 
-		if (command->hello.audio_encodings_supported < _audio_encodings_supported)
-			_audio_encodings_supported = command->hello.audio_encodings_supported;
+		_ds2_ds.snd_encodings_supported = MIPS_AUDIO_ENCODINGS;
+		if (command->hello.audio_encodings_supported < _ds2_ds.snd_encodings_supported)
+			_ds2_ds.snd_encodings_supported = command->hello.audio_encodings_supported;
 
-		_link_status = LINK_STATUS_PENDING_RECV;
-		_current_protocol = _pending_recv_protocol;
+		_ds2_ds.link_status = LINK_STATUS_PENDING_RECV;
+		_ds2_ds.current_protocol = _pending_recv_protocol;
 	}
 }
 
 void _pending_recv_protocol(const union card_command* command)
 {
-	_main_protocol(command);
+	_start_reply();
 
 	switch (command->bytes[0]) {
 		case CARD_COMMAND_RTC_BYTE:
-			_pending_recvs &= ~PENDING_RECV_RTC;
+		{
+			const struct card_command_rtc* command_rtc = &command->rtc;
+
+			_send_reply_4(0);
+			_ds2_ds.rtc = command_rtc->data;
+			_ds2_ds.pending_recvs &= ~PENDING_RECV_RTC;
 			break;
+		}
 
 		case CARD_COMMAND_INPUT_BYTE:
-			_pending_recvs &= ~PENDING_RECV_INPUT;
+		{
+			const struct card_command_input* command_input = &command->input;
+
+			_send_reply_4(0);
+			_ds2_ds.in_state = command_input->data;
+			_ds2_ds.pending_recvs &= ~PENDING_RECV_INPUT;
 			break;
+		}
 	}
 
-	if (_pending_recvs == 0) {
-		_link_status = LINK_STATUS_ESTABLISHED;
-		_current_protocol = _main_protocol;
+	if (_ds2_ds.pending_recvs == 0) {
+		_ds2_ds.link_status = LINK_STATUS_ESTABLISHED;
+		_ds2_ds.current_protocol = _main_protocol;
 	}
 }
 
@@ -171,7 +175,7 @@ void _main_protocol(const union card_command* command)
 			const struct card_command_rtc* command_rtc = &command->rtc;
 
 			_send_reply_4(0);
-			_rtc = command_rtc->data;
+			_ds2_ds.rtc = command_rtc->data;
 			break;
 		}
 
@@ -186,7 +190,7 @@ void _main_protocol(const union card_command* command)
 
 		case CARD_COMMAND_VBLANK_BYTE:
 			_send_reply_4(0);
-			_vblank_count++;
+			_ds2_ds.vblank_count++;
 			break;
 
 		case CARD_COMMAND_VIDEO_DISPLAYED_BYTE:

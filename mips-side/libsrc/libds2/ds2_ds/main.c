@@ -18,11 +18,11 @@
 */
 
 #include <stdint.h>
+#include <string.h>
 #include <ds2/pm.h>
 
 #include "main.h"
 #include "globals.h"
-#include "video.h"
 #include "../dma.h"
 #include "../intc.h"
 #include "../jz4740.h"
@@ -67,7 +67,7 @@ static void cmd_interrupt_handler(unsigned int arg)
 		command.halfwords[i] = REG_CPLD_FIFO_READ_NDSWCMD;
 	}
 
-	(*_current_protocol) (&command);
+	_ds2_ds.current_protocol(&command);
 }
 
 static void fpga_gpio_init(void)
@@ -101,8 +101,35 @@ static void fpga_init(void)
 
 static void init_variables(void)
 {
-	/* Everything else is assumed to be zero-initialised. */
-	_video_backlights = DS_SCREEN_BOTH;
+	size_t i;
+
+	_ds2_ds.snd_started = false;
+
+	_ds2_ds.txt_size = 0;
+
+	_ds2_ds.vid_formats[0] = DS2_PIXEL_FORMAT_BGR555;
+	_ds2_ds.vid_formats[1] = DS2_PIXEL_FORMAT_BGR555;
+	_ds2_ds.vid_main_displayed = 0;
+	_ds2_ds.vid_main_current = 0;
+	_ds2_ds.vid_swap = false;
+	_ds2_ds.vid_backlights = DS_SCREEN_BOTH;
+	_ds2_ds.vid_last_was_flip = false;
+	for (i = 0; i < MAIN_BUFFER_COUNT; i++) {
+		_ds2_ds.vid_main_busy[i] = 0;
+	}
+	_ds2_ds.vid_sub_busy = 0;
+	_ds2_ds.vid_queue_count = 0;
+	_ds2_ds.vblank_count = 0;
+
+	_ds2_ds.link_status = LINK_STATUS_NONE;
+	_ds2_ds.pending_recvs = PENDING_RECV_ALL;
+	_ds2_ds.pending_sends = 0;
+	_ds2_ds.current_protocol = _link_establishment_protocol;
+
+	memset(&_ds2_ds.in_presses, 0, sizeof(_ds2_ds.in_presses));
+	memset(&_ds2_ds.in_releases, 0, sizeof(_ds2_ds.in_releases));
+
+	memset(&_ds2_ds.requests, 0, sizeof(_ds2_ds.requests));
 }
 
 int _ds2_ds_init(void)
@@ -120,7 +147,7 @@ int _ds2_ds_init(void)
 		goto data_irq_failed;
 	}
 
-	if ((_ds2ds_dma_channel = dma_request(NULL, 0, DMAC_DRSR_RS_AUTO,
+	if ((_ds2_ds.dma_channel = dma_request(NULL, 0, DMAC_DRSR_RS_AUTO,
 	     DMAC_DCMD_SAI | DMAC_DCMD_SWDH_32 | DMAC_DCMD_DWDH_16 | DMAC_DCMD_DS_32BIT)) < 0) {
 		dgprintf("Failed to reserve a DMA channel for writes to the Nintendo DS FIFO\n");
 		goto dma_failed;
@@ -149,7 +176,7 @@ int _ds2_ds_init(void)
 	 * - No reading is available for the Nintendo DS's real-time clock
 	 */
 	DS2_StartAwait();
-	while (_link_status == LINK_STATUS_NONE) {
+	while (_ds2_ds.link_status == LINK_STATUS_NONE) {
 		/* With our interrupts temporarily disabled (because we don't want the
 		 * card line to be stuck high when replies get sent later on)... */
 		uint32_t section = DS2_EnterCriticalSection();
@@ -168,7 +195,7 @@ int _ds2_ds_init(void)
 	DS2_StopAwait();
 
 	DS2_StartAwait();
-	while (_link_status != LINK_STATUS_ESTABLISHED)
+	while (_ds2_ds.link_status != LINK_STATUS_ESTABLISHED)
 		DS2_AwaitInterrupt();
 	DS2_StopAwait();
 

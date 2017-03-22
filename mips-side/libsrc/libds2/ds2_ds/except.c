@@ -25,52 +25,50 @@
 #include "card_protocol.h"
 #include "globals.h"
 
-static struct card_reply_mips_exception exception __attribute__((aligned (32)));
-
 void _unhandled_exception(uint32_t excode, const struct _register_block* registers)
 {
-	exception.excode = excode;
-	exception.at = registers->at;
-	exception.v0 = registers->v0;
-	exception.v1 = registers->v1;
-	exception.a0 = registers->a0;
-	exception.a1 = registers->a1;
-	exception.a2 = registers->a2;
-	exception.a3 = registers->a3;
-	exception.t0 = registers->t0;
-	exception.t1 = registers->t1;
-	exception.t2 = registers->t2;
-	exception.t3 = registers->t3;
-	exception.t4 = registers->t4;
-	exception.t5 = registers->t5;
-	exception.t6 = registers->t6;
-	exception.t7 = registers->t7;
-	exception.s0 = registers->s0;
-	exception.s1 = registers->s1;
-	exception.s2 = registers->s2;
-	exception.s3 = registers->s3;
-	exception.s4 = registers->s4;
-	exception.s5 = registers->s5;
-	exception.s6 = registers->s6;
-	exception.s7 = registers->s7;
-	exception.t8 = registers->t8;
-	exception.t9 = registers->t9;
-	exception.gp = registers->gp;
-	exception.sp = registers->sp;
-	exception.fp = registers->fp;
-	exception.ra = registers->ra;
-	exception.hi = registers->hi;
-	exception.lo = registers->lo;
-	exception.c0_epc = registers->c0_epc;
+	_ds2_ds.exception.excode = excode;
+	_ds2_ds.exception.at = registers->at;
+	_ds2_ds.exception.v0 = registers->v0;
+	_ds2_ds.exception.v1 = registers->v1;
+	_ds2_ds.exception.a0 = registers->a0;
+	_ds2_ds.exception.a1 = registers->a1;
+	_ds2_ds.exception.a2 = registers->a2;
+	_ds2_ds.exception.a3 = registers->a3;
+	_ds2_ds.exception.t0 = registers->t0;
+	_ds2_ds.exception.t1 = registers->t1;
+	_ds2_ds.exception.t2 = registers->t2;
+	_ds2_ds.exception.t3 = registers->t3;
+	_ds2_ds.exception.t4 = registers->t4;
+	_ds2_ds.exception.t5 = registers->t5;
+	_ds2_ds.exception.t6 = registers->t6;
+	_ds2_ds.exception.t7 = registers->t7;
+	_ds2_ds.exception.s0 = registers->s0;
+	_ds2_ds.exception.s1 = registers->s1;
+	_ds2_ds.exception.s2 = registers->s2;
+	_ds2_ds.exception.s3 = registers->s3;
+	_ds2_ds.exception.s4 = registers->s4;
+	_ds2_ds.exception.s5 = registers->s5;
+	_ds2_ds.exception.s6 = registers->s6;
+	_ds2_ds.exception.s7 = registers->s7;
+	_ds2_ds.exception.t8 = registers->t8;
+	_ds2_ds.exception.t9 = registers->t9;
+	_ds2_ds.exception.gp = registers->gp;
+	_ds2_ds.exception.sp = registers->sp;
+	_ds2_ds.exception.fp = registers->fp;
+	_ds2_ds.exception.ra = registers->ra;
+	_ds2_ds.exception.hi = registers->hi;
+	_ds2_ds.exception.lo = registers->lo;
+	_ds2_ds.exception.c0_epc = registers->c0_epc;
 	if (registers->c0_epc >= 0x80000000 && registers->c0_epc <= 0x81FFFFF8
 	 && (registers->c0_epc & 3) == 0) {
-		exception.mapped = 1;
-		exception.op = *(uint32_t*) registers->c0_epc;
-		exception.next_op = *((uint32_t*) registers->c0_epc + 1);
+		_ds2_ds.exception.mapped = 1;
+		_ds2_ds.exception.op = *(uint32_t*) registers->c0_epc;
+		_ds2_ds.exception.next_op = *((uint32_t*) registers->c0_epc + 1);
 	} else {
-		exception.mapped = 0;
-		exception.op = 0;
-		exception.next_op = 0;
+		_ds2_ds.exception.mapped = 0;
+		_ds2_ds.exception.op = 0;
+		_ds2_ds.exception.next_op = 0;
 	}
 
 	uint32_t section = DS2_EnterCriticalSection();
@@ -84,8 +82,8 @@ void _unhandled_exception(uint32_t excode, const struct _register_block* registe
 
 void _send_exception(void)
 {
-	_send_reply_4(DATA_KIND_MIPS_EXCEPTION | DATA_ENCODING(0) | DATA_BYTE_COUNT(sizeof(exception)) | DATA_END);
-	_send_reply(&exception, sizeof(exception));
+	_send_reply_4(DATA_KIND_MIPS_EXCEPTION | DATA_ENCODING(0) | DATA_BYTE_COUNT(sizeof(_ds2_ds.exception)) | DATA_END);
+	_send_reply(&_ds2_ds.exception, sizeof(_ds2_ds.exception));
 
-	_pending_sends = 0;
+	_ds2_ds.pending_sends = 0;
 }

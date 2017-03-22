@@ -26,21 +26,10 @@
 #include "globals.h"
 #include "text_encoding_0.h"
 
-/* Text waiting to be sent to the Nintendo DS.
- * Aligned to 32 bytes so as to affect one fewer cache line than if it were
- * not. */
-static char _text_data[508] __attribute__((aligned (32)));
-
-/* The number of meaningful bytes at the start of _text_data.
- * volatile because it's modified by _text_dequeue as part of the card command
- * interrupt handler, and it's then tested in a loop to see if more text can
- * be submitted. */
-static volatile size_t _text_size;
-
 void _text_dequeue(void)
 {
-	_text_encoding_0(_text_data, _text_size);
-	_text_size = 0;
+	_text_encoding_0(_ds2_ds.txt_data, _ds2_ds.txt_size);
+	_ds2_ds.txt_size = 0;
 }
 
 void _text_enqueue(const char* text, size_t length)
@@ -50,12 +39,12 @@ void _text_enqueue(const char* text, size_t length)
 
 	while (length > 0) {
 		DS2_StartAwait();
-		while (_text_size != 0)
+		while (_ds2_ds.txt_size != 0)
 			DS2_AwaitInterrupt();
 		DS2_StopAwait();
 		size_t entry_length = length >= 508 ? 508 : length;
-		memcpy(_text_data, text, entry_length);
-		_text_size = entry_length;
+		memcpy(_ds2_ds.txt_data, text, entry_length);
+		_ds2_ds.txt_size = entry_length;
 		text += entry_length;
 		length -= entry_length;
 

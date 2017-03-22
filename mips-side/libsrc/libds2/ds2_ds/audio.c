@@ -28,45 +28,25 @@
 #include "audio_encoding_0.h"
 #include "globals.h"
 
-bool _audio_started;
-
-uint16_t _audio_frequency;
-
-bool _audio_is_16bit;
-
-bool _audio_is_stereo;
-
-size_t _audio_sample_size_shift;
-
-uint8_t* _audio_buffer;
-
-size_t _audio_buffer_samples;
-
-volatile size_t _audio_read_index;
-
-size_t _audio_send_index;
-
-volatile size_t _audio_write_index;
-
 size_t DS2_GetFreeAudioSamples(void)
 {
 	uint32_t section = DS2_EnterCriticalSection();
-	size_t read_index_copy = _audio_read_index, write_index_copy = _audio_write_index;
+	size_t snd_read = _ds2_ds.snd_read, snd_write = _ds2_ds.snd_write;
 	DS2_LeaveCriticalSection(section);
 
-	if (read_index_copy > write_index_copy)
-		return read_index_copy - write_index_copy - 1;
+	if (snd_read > snd_write)
+		return snd_read - snd_write - 1;
 	else
-		return _audio_buffer_samples - (write_index_copy - read_index_copy) - 1;
+		return _ds2_ds.snd_samples - (snd_write - snd_read) - 1;
 }
 
 void _audio_dequeue(void)
 {
-	size_t result = _audio_encoding_0(_audio_send_index, _audio_write_index);
+	size_t result = _audio_encoding_0(_ds2_ds.snd_send, _ds2_ds.snd_write);
 
-	_audio_send_index = _add_wrap_fast(_audio_send_index, result, _audio_buffer_samples);
+	_ds2_ds.snd_send = _add_wrap_fast(_ds2_ds.snd_send, result, _ds2_ds.snd_samples);
 
-	if (_audio_send_index != _audio_write_index)
+	if (_ds2_ds.snd_send != _ds2_ds.snd_write)
 		_add_pending_send(PENDING_SEND_AUDIO);
 }
 
@@ -77,55 +57,55 @@ void _audio_consumed(size_t samples)
 	 * sound was stopped via DS2_StopAudio, the request hasn't been sent yet,
 	 * and an audio_consumed packet was sent by the Nintendo DS while we have
 	 * no audio to mark as consumed anymore. */
-	size_t send_index_copy = _audio_send_index, read_index_copy = _audio_read_index;
+	size_t snd_send = _ds2_ds.snd_send, snd_read = _ds2_ds.snd_read;
 	size_t sent;
 
-	if (send_index_copy > read_index_copy)
-		sent = send_index_copy - read_index_copy;
+	if (snd_send > snd_read)
+		sent = snd_send - snd_read;
 	else
-		sent = _audio_buffer_samples - (read_index_copy - send_index_copy);
+		sent = _ds2_ds.snd_samples - (snd_read - snd_send);
 	if (samples > sent)
 		samples = sent;
 
-	_audio_read_index = _add_wrap_fast(_audio_read_index, samples, _audio_buffer_samples);
+	_ds2_ds.snd_read = _add_wrap_fast(_ds2_ds.snd_read, samples, _ds2_ds.snd_samples);
 }
 
 int DS2_SubmitAudio(const void* data, size_t n)
 {
 	uint32_t section;
 
-	if (!_audio_started)
+	if (!_ds2_ds.snd_started)
 		return EFAULT;
 	if (n == 0)
 		return 0;
 
 	section = DS2_EnterCriticalSection();
 	while (n > 0) {
-		size_t read_index_copy = _audio_read_index, write_index_copy = _audio_write_index;
+		size_t snd_read = _ds2_ds.snd_read, snd_write = _ds2_ds.snd_write;
 		size_t transfer_samples;
 
-		if (write_index_copy >= read_index_copy) {
-			transfer_samples = _audio_buffer_samples - write_index_copy;
-			if (read_index_copy == 0)
+		if (snd_write >= snd_read) {
+			transfer_samples = _ds2_ds.snd_samples - snd_write;
+			if (snd_read == 0)
 				transfer_samples--; /* Ensure there's a 1-sample gap */
 		} else {
-			transfer_samples = read_index_copy - write_index_copy - 1;
+			transfer_samples = snd_read - snd_write - 1;
 		}
 		if (transfer_samples > n)
 			transfer_samples = n;
 
 		if (transfer_samples > 0) {
-			memcpy(&_audio_buffer[write_index_copy << _audio_sample_size_shift],
+			memcpy(&_ds2_ds.snd_buffer[snd_write << _ds2_ds.snd_size_shift],
 			       data,
-			       transfer_samples << _audio_sample_size_shift);
+			       transfer_samples << _ds2_ds.snd_size_shift);
 			n -= transfer_samples;
-			data = (void*) ((uint8_t*) data + (transfer_samples << _audio_sample_size_shift));
-			_audio_write_index = _add_wrap_fast(_audio_write_index, transfer_samples, _audio_buffer_samples);
+			data = (void*) ((uint8_t*) data + (transfer_samples << _ds2_ds.snd_size_shift));
+			_ds2_ds.snd_write = _add_wrap_fast(_ds2_ds.snd_write, transfer_samples, _ds2_ds.snd_samples);
 			_add_pending_send(PENDING_SEND_AUDIO);
 		} else {
 			DS2_LeaveCriticalSection(section);
 			DS2_StartAwait();
-			while (_audio_read_index == read_index_copy)
+			while (_ds2_ds.snd_read == snd_read)
 				DS2_AwaitInterrupt();
 			DS2_StopAwait();
 			section = DS2_EnterCriticalSection();

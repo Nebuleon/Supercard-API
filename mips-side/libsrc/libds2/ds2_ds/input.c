@@ -27,38 +27,38 @@
 
 void _merge_input(const struct DS_InputState* new_state)
 {
-	/* Merge in any new button presses. Those are 0 in _input_state,
+	/* Merge in any new button presses. Those are 0 in _ds2_ds.in_state,
 	 * 1 in new_state. */
-	_input_presses.buttons |= (new_state->buttons & ~_input_state.buttons)
+	_ds2_ds.in_presses.buttons |= (new_state->buttons & ~_ds2_ds.in_state.buttons)
 	/* Merge in any new button presses of buttons for which a release is still
-	 * pending. Those are 1 in _input_state, 1 in new_state,
-	 * 1 in _input_releases. */
-		| (_input_state.buttons & new_state->buttons & _input_releases.buttons);
-	/* Merge in any new button releases. Those are 1 in _input_state,
+	 * pending. Those are 1 in _ds2_ds.in_state, 1 in new_state,
+	 * 1 in _ds2_ds.in_releases. */
+		| (_ds2_ds.in_state.buttons & new_state->buttons & _ds2_ds.in_releases.buttons);
+	/* Merge in any new button releases. Those are 1 in _ds2_ds.in_state,
 	 * 0 in new_state. */
-	_input_releases.buttons |= (_input_state.buttons & ~new_state->buttons)
+	_ds2_ds.in_releases.buttons |= (_ds2_ds.in_state.buttons & ~new_state->buttons)
 	/* Merge in any new button releases of buttons for which a press is still
-	 * pending. Those are 0 in _input_state, 0 in new_state,
-	 * 1 in _input_presses. */
-		| (~_input_state.buttons & ~new_state->buttons & _input_presses.buttons);
+	 * pending. Those are 0 in _ds2_ds.in_state, 0 in new_state,
+	 * 1 in _ds2_ds.in_presses. */
+		| (~_ds2_ds.in_state.buttons & ~new_state->buttons & _ds2_ds.in_presses.buttons);
 	/* Update touchscreen input if DS_BUTTON_TOUCH is set. */
 	if (new_state->buttons & DS_BUTTON_TOUCH) {
-		_input_presses.touch_x = new_state->touch_x;
-		_input_presses.touch_y = new_state->touch_y;
+		_ds2_ds.in_presses.touch_x = new_state->touch_x;
+		_ds2_ds.in_presses.touch_y = new_state->touch_y;
 	}
 }
 
 void DS2_GetInputState(struct DS_InputState* input_state)
 {
 	uint32_t section = DS2_EnterCriticalSection();
-	uint16_t presses = ~_input_state.buttons & _input_presses.buttons,
-	         releases = _input_state.buttons & _input_releases.buttons;
-	_input_state.buttons = (_input_state.buttons | presses) & ~releases;
-	_input_state.touch_x = _input_presses.touch_x;
-	_input_state.touch_y = _input_presses.touch_y;
-	_input_presses.buttons &= ~presses;
-	_input_releases.buttons &= ~releases;
-	*input_state = _input_state;
+	uint16_t presses = ~_ds2_ds.in_state.buttons & _ds2_ds.in_presses.buttons,
+	         releases = _ds2_ds.in_state.buttons & _ds2_ds.in_releases.buttons;
+	_ds2_ds.in_state.buttons = (_ds2_ds.in_state.buttons | presses) & ~releases;
+	_ds2_ds.in_state.touch_x = _ds2_ds.in_presses.touch_x;
+	_ds2_ds.in_state.touch_y = _ds2_ds.in_presses.touch_y;
+	_ds2_ds.in_presses.buttons &= ~presses;
+	_ds2_ds.in_releases.buttons &= ~releases;
+	*input_state = _ds2_ds.in_state;
 	DS2_LeaveCriticalSection(section);
 }
 
@@ -103,8 +103,8 @@ void DS2_AwaitAnyButtonsIn(uint16_t buttons)
 	/* Ensure that the buttons that caused this call to succeed are all
 	 * pressed in the next reading from user code. */
 	uint32_t section = DS2_EnterCriticalSection();
-	_input_state.buttons &= ~(input_state.buttons & buttons);
-	_input_presses.buttons |= input_state.buttons & buttons;
+	_ds2_ds.in_state.buttons &= ~(input_state.buttons & buttons);
+	_ds2_ds.in_presses.buttons |= input_state.buttons & buttons;
 	DS2_LeaveCriticalSection(section);
 }
 
@@ -122,8 +122,8 @@ void DS2_AwaitNotAllButtonsIn(uint16_t buttons)
 	/* Ensure that the buttons that caused this call to succeed are all
 	 * released in the next reading from user code. */
 	uint32_t section = DS2_EnterCriticalSection();
-	_input_releases.buttons |= ~input_state.buttons & buttons;
-	_input_state.buttons |= buttons;
+	_ds2_ds.in_releases.buttons |= ~input_state.buttons & buttons;
+	_ds2_ds.in_state.buttons |= buttons;
 	DS2_LeaveCriticalSection(section);
 }
 
@@ -154,8 +154,8 @@ void DS2_AwaitAnyButtons(void)
 	/* Ensure that the buttons that caused this call to succeed are all
 	 * pressed in the next reading from user code. */
 	uint32_t section = DS2_EnterCriticalSection();
-	_input_state.buttons &= ~input_state.buttons;
-	_input_presses.buttons |= input_state.buttons;
+	_ds2_ds.in_state.buttons &= ~input_state.buttons;
+	_ds2_ds.in_presses.buttons |= input_state.buttons;
 	DS2_LeaveCriticalSection(section);
 }
 

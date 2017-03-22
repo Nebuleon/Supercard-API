@@ -19,16 +19,4 @@
 
 #include "globals.h"
 
-int _ds2ds_dma_channel;
-
-struct DS_RTC _rtc;
-
-struct DS_InputState _input_state __attribute__((aligned (4)));
-
-struct DS_InputState _input_presses __attribute__((aligned (4)));
-
-struct DS_InputState _input_releases __attribute__((aligned (4)));
-
-uint32_t _pending_sends;
-
-union card_reply_512 _global_reply __attribute__((aligned (32)));
+struct _ds2_ds _ds2_ds;

@@ -24,9 +24,7 @@
     .text
     .set     noreorder
 
-    .extern  _video_main
-    .extern  _video_main_current 1
-    .extern  _video_sub
+    .extern  DS2_GetScreen
 
     .ent     DS2_FillScreen
     .global  DS2_FillScreen
@@ -41,57 +39,48 @@
      *   argument 2: The color to fill the screen with.
      * Environment assumptions:
      * - _video_main and _video_sub are aligned to 32 bytes.
-     * - The type of _video_main_current is uint8_t.
      * Returns:
      *   0 on success.
      *   EINVAL if 'engine' is neither DS_ENGINE_MAIN nor DS_ENGINE_SUB.
      */
 DS2_FillScreen:
-    li      t4, DS_ENGINE_MAIN
-    beq     a0, t4, main_screen
-    li      t5, DS_ENGINE_SUB          # (delay slot)
-    beq     a0, t5, sub_screen
-    nop                                # cannot delay usefully here
+    addiu   sp, sp, -24
+    sw      ra, 20(sp)
+    sw      s0, 16(sp)
+    jal     DS2_GetScreen
+    or      s0, a1, zero               # (delay slot) grab 'color' in s0
 
-    # Here, argument 1 is invalid.
+    andi    a1, s0, 0xFFFF             # ensure 'color' is 16-bit
+    lw      ra, 20(sp)                 # grab everything from the stack
+    lw      s0, 16(sp)                 # since we'll trash the data cache soon
+
+    beq     v0, zero, fail
+    addiu   sp, sp, 24                 # (delay slot) adjust the stack
+    sll     t0, a1, 16
+    or      a1, a1, t0                 # make a word full of argument 2
+    li      t0, (DS_SCREEN_WIDTH * DS_SCREEN_HEIGHT * 2) / 32
+
+1:  pref    30, 0(v0)                  # PrepareForStore: clear a cache line
+    addiu   v0, v0, 32                 # without loading data from RAM for it
+    addiu   t0, t0, -1
+    sw      a1, -32(v0)
+    sw      a1, -28(v0)
+    sw      a1, -24(v0)
+    sw      a1, -20(v0)
+    sw      a1, -16(v0)
+    sw      a1, -12(v0)
+    sw      a1, -8(v0)
+    bne     t0, zero, 1b
+    sw      a1, -4(v0)                 # (delay slot) store to 28(old v0)
+
+    jr      ra
+    or      v0, zero, zero             # (delay slot) return success
+
+fail:
     .set     push
     .set     reorder
     li      v0, EINVAL
     jr      ra
     .set     pop
-
-main_screen:
-    lbu     t0, _video_main_current
-    la      a0, _video_main
-    li      t1, DS_SCREEN_WIDTH * DS_SCREEN_HEIGHT * 2
-    multu   t1, t0
-    mflo    t0
-    b       common
-    addu    a0, a0, t0                 # (delay slot) a0 = _video_main[_video_main_current]
-
-sub_screen:
-    la      a0, _video_sub
-
-common:
-    andi    a1, a1, 0xFFFF             # ensure arg 2 is 16-bit
-    sll     t0, a1, 16
-    or      a1, a1, t0                 # make a word full of argument 2
-    li      t0, (DS_SCREEN_WIDTH * DS_SCREEN_HEIGHT * 2) / 32
-
-1:  pref    30, 0(a0)                  # PrepareForStore: clear a cache line
-    addiu   a0, a0, 32                 # without loading data from RAM for it
-    addiu   t0, t0, -1
-    sw      a1, -32(a0)
-    sw      a1, -28(a0)
-    sw      a1, -24(a0)
-    sw      a1, -20(a0)
-    sw      a1, -16(a0)
-    sw      a1, -12(a0)
-    sw      a1, -8(a0)
-    bne     t0, zero, 1b
-    sw      a1, -4(a0)                 # (delay slot) store to 28(old a0)
-
-    jr      ra
-    or      v0, zero, zero             # (delay slot) return success
 
     .end     DS2_FillScreen

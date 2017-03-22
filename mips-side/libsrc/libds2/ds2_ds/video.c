@@ -32,43 +32,6 @@ uint16_t _video_main[MAIN_BUFFER_COUNT][DS_SCREEN_WIDTH * DS_SCREEN_HEIGHT] __at
 
 uint16_t _video_sub[DS_SCREEN_WIDTH * DS_SCREEN_HEIGHT] __attribute__((aligned (32)));
 
-enum DS2_PixelFormat _video_pixel_formats[2] = {
-	DS2_PIXEL_FORMAT_BGR555, DS2_PIXEL_FORMAT_BGR555
-};
-
-uint8_t _video_main_current;
-
-volatile uint8_t _video_main_displayed;
-
-/* true if the last operation on the Main Screen was a flip; false if it was
- * an update. This is tracked so we can know if '_video_main_current' should
- * match '_video_main_displayed' (previous operation was an update) or if it
- * should NOT match it (previous operation was a flip). */
-static bool _video_last_was_flip;
-
-bool _video_swap;
-
-enum DS_Screen _video_backlights;
-
-volatile uint8_t _video_main_busy[MAIN_BUFFER_COUNT];
-
-volatile uint8_t _video_sub_busy;
-
-volatile uint32_t _vblank_count;
-
-struct _video_entry {
-	uint16_t* src;
-	volatile uint8_t* busy;
-	uint16_t pixel_offset;
-	uint16_t pixel_count;
-	uint8_t buffer;
-	enum DS_Engine engine;
-};
-
-static struct _video_entry _video_send_queue[MAIN_BUFFER_COUNT + 1];
-
-static size_t _video_send_queue_count;
-
 static int video_enqueue(enum DS_Engine engine, size_t start_y, size_t end_y, bool flip)
 {
 	volatile uint8_t* busy;
@@ -83,13 +46,13 @@ static int video_enqueue(enum DS_Engine engine, size_t start_y, size_t end_y, bo
 	}
 
 	if (engine == DS_ENGINE_MAIN) {
-		busy = &_video_main_busy[_video_main_current];
+		busy = &_ds2_ds.vid_main_busy[_ds2_ds.vid_main_current];
 		/* Wait for any transfer of this very screen to the Nintendo DS to end. */
 		DS2_StartAwait();
 		while (*busy != 0)
 			DS2_AwaitInterrupt();
 		DS2_StopAwait();
-		src = _video_main[_video_main_current];
+		src = _video_main[_ds2_ds.vid_main_current];
 
 		/* If we're using multiple buffering and the Nintendo DS is still
 		 * displaying the screen we're about to send, wait until the DS flips
@@ -98,9 +61,9 @@ static int video_enqueue(enum DS_Engine engine, size_t start_y, size_t end_y, bo
 		 * tear the screen!
 		 * However, if the previous operation was NOT a flip, the Nintendo DS
 		 * will obviously be displaying the buffer we want to flip to... */
-		if (flip && _video_last_was_flip) {
+		if (flip && _ds2_ds.vid_last_was_flip) {
 			DS2_StartAwait();
-			while (_video_main_displayed == _video_main_current)
+			while (_ds2_ds.vid_main_displayed == _ds2_ds.vid_main_current)
 				DS2_AwaitInterrupt();
 			DS2_StopAwait();
 		}
@@ -108,14 +71,14 @@ static int video_enqueue(enum DS_Engine engine, size_t start_y, size_t end_y, bo
 		 * used multiple buffering, wait until the Nintendo DS displays the
 		 * buffer before the one we're about to update. That way, we're not
 		 * updating a hidden buffer for the next 2 VBlanks. */
-		else if (!flip && _video_last_was_flip) {
+		else if (!flip && _ds2_ds.vid_last_was_flip) {
 			DS2_StartAwait();
-			while ((_video_main_displayed + 1) % MAIN_BUFFER_COUNT != _video_main_current)
+			while ((_ds2_ds.vid_main_displayed + 1) % MAIN_BUFFER_COUNT != _ds2_ds.vid_main_current)
 				DS2_AwaitInterrupt();
 			DS2_StopAwait();
 		}
 	} else {
-		busy = &_video_sub_busy;
+		busy = &_ds2_ds.vid_sub_busy;
 		/* Wait for any transfer of this very screen to the Nintendo DS to end. */
 		DS2_StartAwait();
 		while (*busy != 0)
@@ -126,22 +89,22 @@ static int video_enqueue(enum DS_Engine engine, size_t start_y, size_t end_y, bo
 
 	{
 		uint32_t section = DS2_EnterCriticalSection();
-		struct _video_entry* tail = &_video_send_queue[_video_send_queue_count];
+		struct _video_entry* tail = &_ds2_ds.vid_queue[_ds2_ds.vid_queue_count];
 
 		tail->src = src + DS_SCREEN_WIDTH * start_y;
 		tail->engine = engine;
-		tail->buffer = (engine == DS_ENGINE_MAIN) ? _video_main_current : 0;
+		tail->buffer = (engine == DS_ENGINE_MAIN) ? _ds2_ds.vid_main_current : 0;
 		tail->pixel_offset = DS_SCREEN_WIDTH * start_y;
 		tail->pixel_count = DS_SCREEN_WIDTH * (end_y - start_y);
 		tail->busy = busy;
 
-		_video_send_queue_count++;
+		_ds2_ds.vid_queue_count++;
 		*busy = 1;
 
 		if (flip)
-			_video_main_current = (_video_main_current + 1) % MAIN_BUFFER_COUNT;
+			_ds2_ds.vid_main_current = (_ds2_ds.vid_main_current + 1) % MAIN_BUFFER_COUNT;
 		if (engine == DS_ENGINE_MAIN)
-			_video_last_was_flip = flip;
+			_ds2_ds.vid_last_was_flip = flip;
 
 		_add_pending_send(PENDING_SEND_VIDEO);
 		DS2_LeaveCriticalSection(section);
@@ -152,7 +115,7 @@ static int video_enqueue(enum DS_Engine engine, size_t start_y, size_t end_y, bo
 
 void _video_dequeue(void)
 {
-	struct _video_entry* head = &_video_send_queue[0];
+	struct _video_entry* head = &_ds2_ds.vid_queue[0];
 	size_t result;
 
 	result = _video_encoding_0(head->src, head->engine, head->buffer, head->pixel_offset, head->pixel_count);
@@ -164,20 +127,20 @@ void _video_dequeue(void)
 	if (head->pixel_count == 0) {
 		size_t i;
 		*head->busy = 0;
-		for (i = 1; i < _video_send_queue_count; i++) {
-			_video_send_queue[i - 1] = _video_send_queue[i];
+		for (i = 1; i < _ds2_ds.vid_queue_count; i++) {
+			_ds2_ds.vid_queue[i - 1] = _ds2_ds.vid_queue[i];
 		}
-		_video_send_queue_count--;
+		_ds2_ds.vid_queue_count--;
 	}
 
-	if (_video_send_queue_count > 0) {
+	if (_ds2_ds.vid_queue_count > 0) {
 		_add_pending_send(PENDING_SEND_VIDEO);
 	}
 }
 
 void _video_displayed(uint_fast8_t index)
 {
-	_video_main_displayed = index;
+	_ds2_ds.vid_main_displayed = index;
 }
 
 int DS2_UpdateScreen(enum DS_Engine engine)
@@ -207,14 +170,14 @@ int DS2_AwaitScreenUpdate(enum DS_Engine engine)
 
 	if (engine & DS_ENGINE_MAIN) {
 		DS2_StartAwait();
-		while (_video_main_busy[_video_main_current] != 0)
+		while (_ds2_ds.vid_main_busy[_ds2_ds.vid_main_current] != 0)
 			DS2_AwaitInterrupt();
 		DS2_StopAwait();
 	}
 
 	if (engine & DS_ENGINE_SUB) {
 		DS2_StartAwait();
-		while (_video_sub_busy != 0)
+		while (_ds2_ds.vid_sub_busy != 0)
 			DS2_AwaitInterrupt();
 		DS2_StopAwait();
 	}
@@ -224,7 +187,7 @@ int DS2_AwaitScreenUpdate(enum DS_Engine engine)
 
 uint16_t* DS2_GetMainScreen(void)
 {
-	return _video_main[_video_main_current];
+	return _video_main[_ds2_ds.vid_main_current];
 }
 
 uint16_t* DS2_GetSubScreen(void)
@@ -235,7 +198,7 @@ uint16_t* DS2_GetSubScreen(void)
 uint16_t* DS2_GetScreen(enum DS_Engine engine)
 {
 	return engine == DS_ENGINE_MAIN
-		? _video_main[_video_main_current]
+		? _video_main[_ds2_ds.vid_main_current]
 		: engine == DS_ENGINE_SUB
 			? _video_sub
 			: NULL;
@@ -243,7 +206,7 @@ uint16_t* DS2_GetScreen(enum DS_Engine engine)
 
 enum DS2_PixelFormat DS2_GetPixelFormat(enum DS_Engine engine)
 {
-	return _video_pixel_formats[engine - 1];
+	return _ds2_ds.vid_formats[engine - 1];
 }
 
 int DS2_SetPixelFormat(enum DS_Engine engine, enum DS2_PixelFormat format)
@@ -254,27 +217,27 @@ int DS2_SetPixelFormat(enum DS_Engine engine, enum DS2_PixelFormat format)
 	}
 
 	if (engine & DS_ENGINE_MAIN)
-		_video_pixel_formats[DS_ENGINE_MAIN - 1] = format;
+		_ds2_ds.vid_formats[DS_ENGINE_MAIN - 1] = format;
 	if (engine & DS_ENGINE_SUB)
-		_video_pixel_formats[DS_ENGINE_SUB - 1] = format;
+		_ds2_ds.vid_formats[DS_ENGINE_SUB - 1] = format;
 	return 0;
 }
 
 bool DS2_GetScreenSwap(void)
 {
-	return _video_swap;
+	return _ds2_ds.vid_swap;
 }
 
 enum DS_Screen DS2_GetScreenBacklights(void)
 {
-	return _video_backlights;
+	return _ds2_ds.vid_backlights;
 }
 
 void DS2_AwaitVBlank(void)
 {
-	uint32_t saved_count = _vblank_count;
+	uint32_t saved_count = _ds2_ds.vblank_count;
 	DS2_StartAwait();
-	while (_vblank_count == saved_count)
+	while (_ds2_ds.vblank_count == saved_count)
 		DS2_AwaitInterrupt();
 	DS2_StopAwait();
 }

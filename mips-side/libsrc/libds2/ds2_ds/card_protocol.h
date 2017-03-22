@@ -33,18 +33,6 @@ enum _mips_side_link_status {
 	LINK_STATUS_ESTABLISHED
 };
 
-/* Status of the link between the DS and the Supercard.
- * volatile because it can be modified by the card command interrupt handler. */
-extern volatile enum _mips_side_link_status _link_status;
-
-extern uint8_t _video_encodings_supported;
-
-extern uint8_t _audio_encodings_supported;
-
-/* Things to be received from the DS before the link can be considered
- * established. */
-extern uint32_t _pending_recvs;
-
 #define PENDING_RECV_INPUT   0x00000001
 #define PENDING_RECV_RTC     0x00000002
 #define PENDING_RECV_ALL     (PENDING_RECV_INPUT | PENDING_RECV_RTC)
@@ -239,11 +227,6 @@ union card_reply_512 {
 	uint32_t words[128];
 };
 /* - - - END SHARED PART - - - */
-
-/* Current protocol handler. Depends on the link status.
- * Not volatile, despite _link_status being volatile, because it's never used
- * outside of interrupt handlers. */
-extern void (*_current_protocol) (const union card_command*);
 
 extern void _link_establishment_protocol(const union card_command* command);
 extern void _pending_recv_protocol(const union card_command* command);

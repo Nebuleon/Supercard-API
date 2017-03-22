@@ -29,13 +29,13 @@ time_t time(time_t* tp)
 	struct tm tm;
 
 	uint32_t section = DS2_EnterCriticalSection();
-	tm.tm_year = (2000 /* DS RTC base year */ + _rtc.year) - 1900 /* struct tm base year */;
-	tm.tm_mon = _rtc.month - 1;
-	tm.tm_mday = _rtc.day;
+	tm.tm_year = (2000 /* DS RTC base year */ + _ds2_ds.rtc.year) - 1900 /* struct tm base year */;
+	tm.tm_mon = _ds2_ds.rtc.month - 1;
+	tm.tm_mday = _ds2_ds.rtc.day;
 	/* Map hours 40..51 (PM 0..11) to 12..23, others are 24-hour or AM */
-	tm.tm_hour = (_rtc.hour >= 40 ? _rtc.hour - 28 : _rtc.hour);
-	tm.tm_min = _rtc.minute;
-	tm.tm_sec = _rtc.second;
+	tm.tm_hour = (_ds2_ds.rtc.hour >= 40 ? _ds2_ds.rtc.hour - 28 : _ds2_ds.rtc.hour);
+	tm.tm_min = _ds2_ds.rtc.minute;
+	tm.tm_sec = _ds2_ds.rtc.second;
 	DS2_LeaveCriticalSection(section);
 	tm.tm_isdst = -1;
 	tm.tm_wday = tm.tm_yday = -1;

@@ -20,42 +20,41 @@
 #include <stddef.h>
 #include <string.h>
 
-#include "audio.h"
 #include "card_protocol.h"
 #include "globals.h"
 
-size_t _audio_encoding_0(size_t audio_send_index, size_t audio_write_index)
+size_t _audio_encoding_0(size_t snd_send, size_t snd_write)
 {
-	size_t max_samples = 508 >> _audio_sample_size_shift, samples;
+	size_t max_samples = 508 >> _ds2_ds.snd_size_shift, samples;
 
-	if (audio_send_index < audio_write_index) {
-		samples = audio_write_index - audio_send_index;
+	if (snd_send < snd_write) {
+		samples = snd_write - snd_send;
 		if (samples > max_samples)
 			samples = max_samples;
 
-		memcpy(&_global_reply.bytes[4],
-		       &_audio_buffer[audio_send_index << _audio_sample_size_shift],
-		       samples << _audio_sample_size_shift);
+		memcpy(&_ds2_ds.temp.bytes[4],
+		       &_ds2_ds.snd_buffer[snd_send << _ds2_ds.snd_size_shift],
+		       samples << _ds2_ds.snd_size_shift);
 	} else {
 		size_t samples_a, samples_b;
-		samples = _audio_buffer_samples - (audio_send_index - audio_write_index);
+		samples = _ds2_ds.snd_samples - (snd_send - snd_write);
 		if (samples > max_samples)
 			samples = max_samples;
-		samples_a = _audio_buffer_samples - audio_send_index;
+		samples_a = _ds2_ds.snd_samples - snd_send;
 		if (samples_a > max_samples)
 			samples_a = max_samples;
 		samples_b = samples - samples_a;
 
-		memcpy(&_global_reply.bytes[4],
-		       &_audio_buffer[audio_send_index << _audio_sample_size_shift],
-		       samples_a << _audio_sample_size_shift);
-		memcpy(&_global_reply.bytes[4 + (samples_a << _audio_sample_size_shift)],
-		       _audio_buffer,
-		       samples_b << _audio_sample_size_shift);
+		memcpy(&_ds2_ds.temp.bytes[4],
+		       &_ds2_ds.snd_buffer[snd_send << _ds2_ds.snd_size_shift],
+		       samples_a << _ds2_ds.snd_size_shift);
+		memcpy(&_ds2_ds.temp.bytes[4 + (samples_a << _ds2_ds.snd_size_shift)],
+		       _ds2_ds.snd_buffer,
+		       samples_b << _ds2_ds.snd_size_shift);
 	}
 
-	_global_reply.words[0] = DATA_KIND_AUDIO | DATA_ENCODING(0) | DATA_BYTE_COUNT(samples << _audio_sample_size_shift);
-	_send_reply(&_global_reply, 512);
+	_ds2_ds.temp.words[0] = DATA_KIND_AUDIO | DATA_ENCODING(0) | DATA_BYTE_COUNT(samples << _ds2_ds.snd_size_shift);
+	_send_reply(&_ds2_ds.temp, sizeof(_ds2_ds.temp));
 
 	return samples;
 }

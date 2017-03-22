@@ -24,24 +24,22 @@
 #include "card_protocol.h"
 #include "globals.h"
 
-static struct card_reply_mips_assert failure __attribute__((aligned (32)));
-
 __attribute__((noreturn, cold))
 void _assert_fail(const char* file, unsigned int line, const char* text)
 {
 	size_t file_len = strlen(file), text_len = strlen(text);
-	failure.line = line;
+	_ds2_ds.assert_failure.line = line;
 
 	if (file_len > 255)
 		file_len = 255;
-	if (file_len + text_len > sizeof(failure.data))
-		text_len = sizeof(failure.data) - file_len;
+	if (file_len + text_len > sizeof(_ds2_ds.assert_failure.data))
+		text_len = sizeof(_ds2_ds.assert_failure.data) - file_len;
 
-	failure.file_len = file_len;
-	failure.text_len = text_len;
+	_ds2_ds.assert_failure.file_len = file_len;
+	_ds2_ds.assert_failure.text_len = text_len;
 
-	memcpy(failure.data, file, file_len);
-	memcpy(&failure.data[file_len], text, text_len);
+	memcpy(_ds2_ds.assert_failure.data, file, file_len);
+	memcpy(&_ds2_ds.assert_failure.data[file_len], text, text_len);
 
 	uint32_t section = DS2_EnterCriticalSection();
 	_add_pending_send(PENDING_SEND_ASSERT);
@@ -54,8 +52,8 @@ void _assert_fail(const char* file, unsigned int line, const char* text)
 
 void _send_assert(void)
 {
-	_send_reply_4(DATA_KIND_MIPS_ASSERT | DATA_ENCODING(0) | DATA_BYTE_COUNT(sizeof(failure)) | DATA_END);
-	_send_reply(&failure, sizeof(failure));
+	_send_reply_4(DATA_KIND_MIPS_ASSERT | DATA_ENCODING(0) | DATA_BYTE_COUNT(sizeof(_ds2_ds.assert_failure)) | DATA_END);
+	_send_reply(&_ds2_ds.assert_failure, sizeof(_ds2_ds.assert_failure));
 
-	_pending_sends = 0;
+	_ds2_ds.pending_sends = 0;
 }

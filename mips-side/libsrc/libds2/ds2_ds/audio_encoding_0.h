@@ -26,12 +26,12 @@
  * Audio encoding 0 is simply uncompressed audio.
  *
  * In:
- *   audio_send_index: The index of the first sample in _audio_buffer to send.
- *   audio_write_index: One past the index of the last sample in _audio_buffer
+ *   snd_send: The index of the first sample in _ds2_ds.snd_buffer to send.
+ *   snd_write: One past the index of the last sample in _ds2_ds.snd_buffer
  *     to send.
  * Returns:
  *   The number of samples sent.
  */
-extern size_t _audio_encoding_0(size_t audio_send_index, size_t audio_write_index);
+extern size_t _audio_encoding_0(size_t snd_send, size_t snd_write);
 
 #endif /* !__DS2_DS_AUDIO_ENCODING_0_H__ */
