@@ -17,7 +17,7 @@ RANLIB   := $(PREFIX)gcc-ranlib
 
 INCLUDES := -I../../include -iquote. -Ilibfat/include -iquotelibfat/source
 
-SOURCE_DIRS := . libc ds2_ds libfat/source stdio_libfat
+SOURCE_DIRS := . libc ds2_ds libfat/source
 
 CFLAGS   := -Wall -G 0 -O2 -fomit-frame-pointer -ffunction-sections \
             $(INCLUDES)
