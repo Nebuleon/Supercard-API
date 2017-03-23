@@ -25,7 +25,7 @@
 static struct {
 	void (*handler)(unsigned int);
 	unsigned int arg;
-} irq_table[IRQ_MAX];
+} irq_table[IRQ_MAX] __attribute__((section(".noinit")));
 
 static void default_handler(unsigned int arg)
 {

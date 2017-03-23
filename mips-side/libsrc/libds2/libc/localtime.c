@@ -34,7 +34,7 @@ static const uint8_t month_days[12] = {
 
 struct tm* localtime(const time_t* tp)
 {
-	static struct tm tm;
+	static struct tm tm __attribute__((section(".noinit")));
 
 	time_t t = *tp;
 

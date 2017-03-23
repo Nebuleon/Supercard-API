@@ -221,7 +221,7 @@ struct __attribute__((aligned(32))) _ds2_ds {
 	union card_reply_512 temp __attribute__((aligned (32)));
 };
 
-extern struct _ds2_ds _ds2_ds;
+extern struct _ds2_ds _ds2_ds __attribute__((section(".noinit")));
 
 /* The following must be sorted in order of priority to be sent.
  * Bit 0 has the highest priority; bit 31 has the lowest. */

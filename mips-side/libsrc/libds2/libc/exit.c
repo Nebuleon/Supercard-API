@@ -34,7 +34,7 @@
 
 typedef void (*_atexit_func) (void);
 
-static _atexit_func _atexit_funcs[32];
+static _atexit_func _atexit_funcs[32] __attribute__((section(".noinit")));
 static size_t _atexit_func_count;
 
 #define RESET_POWER ((0 << 11) | (0 << 12))

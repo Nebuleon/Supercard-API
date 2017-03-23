@@ -19,4 +19,4 @@
 
 #include "globals.h"
 
-struct _ds2_ds _ds2_ds;
+struct _ds2_ds _ds2_ds __attribute__((section(".noinit")));

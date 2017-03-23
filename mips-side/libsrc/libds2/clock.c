@@ -26,8 +26,8 @@ static const unsigned char FR2n[] = {
 	1, 2, 3, 4, 6, 8, 12, 16, 24, 32
 };
 
-static unsigned int _pllout;
-static unsigned int _iclk;
+static unsigned int _pllout __attribute__((section(".noinit")));
+static unsigned int _iclk __attribute__((section(".noinit")));
 
 void _clock_init(void)
 {

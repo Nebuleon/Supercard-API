@@ -44,9 +44,9 @@ struct chunk {
 	uint32_t status;
 };
 
-static struct chunk* first_chunk;
+static struct chunk* first_chunk __attribute__((section(".noinit")));
 
-static size_t heap_size;
+static size_t heap_size __attribute__((section(".noinit")));
 
 static inline void* data_for(struct chunk* header)
 {

@@ -21,7 +21,7 @@
 
 #include "../libfat/source/fatfile.h"
 
-static FILE_STRUCT _std_files[3];
+static FILE_STRUCT _std_files[3] __attribute__((section(".noinit")));
 
 FILE* const stdin = (FILE*) &_std_files[0];
 FILE* const stdout = (FILE*) &_std_files[1];

@@ -1192,7 +1192,8 @@ static int add_cnk_list_entry(struct pr_chunk_x **list,
 
 int vfprintf(FILE* restrict stream, const char* restrict format, va_list ap)
 {
-    static char buf[4096];
+    /* moved to section .noinit to avoid zero-initialisation - Neb */
+    static char buf[4096] __attribute__((section(".noinit")));
     int size;
 
     size = vsnprintf(buf, sizeof(buf), format, ap);

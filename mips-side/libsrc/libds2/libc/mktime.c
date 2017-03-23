@@ -138,7 +138,8 @@ mkdst(
 	)
 {
     /* jds */
-    static struct tm tmbuf;
+    /* moved to section .noinit to avoid zero-initialisation - Neb */
+    static struct tm tmbuf __attribute__((section(".noinit")));
 
     tmbuf = *tmp;
     tmbuf.tm_isdst = 1;

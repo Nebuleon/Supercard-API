@@ -27,8 +27,8 @@
 static bool dmac_started;
 
 static bool dma_ch_in_use[MAX_DMA_NUM];
-static bool dma_ch_transfer_size_shift[MAX_DMA_NUM];
-static bool dma_ch_triggers_irq[MAX_DMA_NUM];
+static bool dma_ch_transfer_size_shift[MAX_DMA_NUM] __attribute__((section(".noinit")));
+static bool dma_ch_triggers_irq[MAX_DMA_NUM] __attribute__((section(".noinit")));
 
 #define PHYSADDR(addr) ((uintptr_t) (addr) & 0x1FFFFFFF)
 
