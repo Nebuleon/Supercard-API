@@ -34,6 +34,7 @@
 
 #include "libfat/source/fatdir.h"
 #include "libfat/source/fatfile.h"
+#include "libfat/source/partition.h"
 
 #include "libfat/include/fat.h"
 
@@ -163,7 +164,17 @@ int ferror(FILE* handle)
 
 int fflush(FILE* handle)
 {
-	return _FAT_fsync(fileno(handle));
+	if (IS_STDIN(handle) || IS_STDOUT(handle) || IS_STDERR(handle))
+		return 0;
+	else if (handle == NULL) {  /* flush all open files */
+		if (_FAT_cache_flush(single_partition->cache))
+			return 0;
+		else {
+			errno = EIO;
+			return EOF;
+		}
+	} else
+		return _FAT_fsync(fileno(handle));
 }
 
 int fgetc(FILE* handle)
