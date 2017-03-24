@@ -28,6 +28,8 @@
 
 bool audio_started;
 
+bool audio_status_required;
+
 DTCM_BSS size_t audio_sample_size_shift;
 
 DTCM_BSS size_t audio_buffer_samples;
@@ -133,6 +135,11 @@ void audio_start(uint16_t frequency, size_t buffer_size, bool is_16bit, bool is_
 	REG_IME = IME_ENABLE;  /* must be enabled for maxmod communications */
 	mmStreamOpen(&streamdata);
 	REG_IME = IME_DISABLE;
+
+	audio_started = true;
+	if (audio_status_required) {
+		add_pending_send(PENDING_SEND_AUDIO_STATUS);
+	}
 }
 
 void audio_stop()
@@ -148,4 +155,7 @@ void audio_stop()
 	audio_buffer = NULL;
 
 	audio_started = false;
+	if (audio_status_required) {
+		add_pending_send(PENDING_SEND_AUDIO_STATUS);
+	}
 }

@@ -112,6 +112,7 @@ void _link_establishment_protocol(const union card_command* command)
 		reply->hello_value = SUPERCARD_HELLO_VALUE;
 		reply->video_encodings_supported = MIPS_VIDEO_ENCODINGS;
 		reply->audio_encodings_supported = MIPS_AUDIO_ENCODINGS;
+		reply->extensions.audio_status = 1;
 		memset(&reply->reserved, 0, sizeof(reply->reserved));
 		for (i = 0; i < sizeof(reply->end_sync); i++) {
 			reply->end_sync[i] = i;
@@ -208,6 +209,15 @@ void _main_protocol(const union card_command* command)
 
 			_send_reply_4(0);
 			_audio_consumed(command_audio_consumed->count);
+			break;
+		}
+
+		case CARD_COMMAND_AUDIO_STATUS_BYTE:
+		{
+			const struct card_command_audio_status* command_audio_status = &command->audio_status;
+
+			_send_reply_4(0);
+			_ds2_ds.snd_status = command_audio_status->status ? AUDIO_STATUS_STARTED : AUDIO_STATUS_STOPPED;
 			break;
 		}
 

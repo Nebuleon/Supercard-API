@@ -37,11 +37,15 @@
  * consumed. */
 #define PENDING_SEND_AUDIO_CONSUMED      0x00000004
 
+/* A notification must be sent that the audio is either done being started
+ * or done being stopped. */
+#define PENDING_SEND_AUDIO_STATUS        0x00000008
+
 /* The newly-pressed button mask and touch position data must be sent. */
-#define PENDING_SEND_INPUT               0x00000008
+#define PENDING_SEND_INPUT               0x00000010
 
 /* The latest reading of the Real-Time Clock must be sent. */
-#define PENDING_SEND_RTC                 0x00000010
+#define PENDING_SEND_RTC                 0x00000020
 
 /* The Supercard's queue still has some data we must ask for. Lowest priority. */
 #define PENDING_SEND_QUEUE               0x80000000

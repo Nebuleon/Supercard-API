@@ -52,6 +52,8 @@ enum _mips_side_link_status {
 
 #define CARD_COMMAND_VIDEO_DISPLAYED_BYTE 0xC5
 
+#define CARD_COMMAND_AUDIO_STATUS_BYTE 0xC6
+
 #define CARD_COMMAND_SEND_QUEUE_BYTE 0xC0
 
 struct __attribute__((packed, aligned (4))) card_command_hello {
@@ -78,6 +80,12 @@ struct __attribute__((packed, aligned (4))) card_command_audio_consumed {
 	uint16_t count; /* number of samples consumed */
 };
 
+struct __attribute__((packed, aligned (4))) card_command_audio_status {
+	uint8_t byte; /* = CARD_COMMAND_AUDIO_STATUS_BYTE */
+	uint8_t zero[6];
+	uint8_t status; /* 1 if audio was started, 0 if it was stopped */
+};
+
 struct __attribute__((packed, aligned (4))) card_command_video_displayed {
 	uint8_t byte; /* = CARD_COMMAND_VIDEO_DISPLAYED_BYTE */
 	uint8_t zero[6];
@@ -92,6 +100,7 @@ union card_command {
 	struct card_command_input input;
 	struct card_command_rtc rtc;
 	struct card_command_audio_consumed audio_consumed;
+	struct card_command_audio_status audio_status;
 	struct card_command_video_displayed video_displayed;
 };
 
@@ -99,7 +108,13 @@ struct __attribute__((packed, aligned (4))) card_reply_hello {
 	uint32_t hello_value; /* = SUPERCARD_HELLO_VALUE */
 	uint8_t video_encodings_supported;
 	uint8_t audio_encodings_supported;
-	uint8_t reserved[250];
+	struct {
+		/* Non-zero if card_command_audio_status is required by the Supercard when
+		 * the Nintendo DS starts or stops audio output.
+		 * Zero if the Supercard does not recognise card_command_audio_status. */
+		uint8_t audio_status;
+	} extensions;
+	uint8_t reserved[249];
 	uint8_t end_sync[256]; /* 0x00 to 0xFF in sequence, just to check the link */
 };
 

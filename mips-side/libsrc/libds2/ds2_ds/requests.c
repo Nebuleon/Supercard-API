@@ -22,6 +22,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ds2/pm.h>
 
 #include "../intc.h"
 #include "../dma.h"
@@ -63,8 +64,20 @@ int DS2_SetScreenBacklights(enum DS_Screen screens)
 
 int DS2_StartAudio(uint16_t frequency, uint16_t buffer_size, bool is_16bit, bool is_stereo)
 {
-	if (_ds2_ds.snd_started) {
+	/* Wait for a previous start request to be done, if any. */
+	DS2_StartAwait();
+	while (_ds2_ds.snd_status == AUDIO_STATUS_STARTING)
+		DS2_AwaitInterrupt();
+	DS2_StopAwait();
+	
+	if (_ds2_ds.snd_status == AUDIO_STATUS_STARTED) {
 		DS2_StopAudio();
+
+		/* Wait until the audio is fully stopped before starting it again. */
+		DS2_StartAwait();
+		while (_ds2_ds.snd_status == AUDIO_STATUS_STOPPING)
+			DS2_AwaitInterrupt();
+		DS2_StopAwait();
 	}
 
 	{
@@ -90,7 +103,7 @@ int DS2_StartAudio(uint16_t frequency, uint16_t buffer_size, bool is_16bit, bool
 		_ds2_ds.snd_16bit = _ds2_ds.requests.is_16bit;
 		_ds2_ds.snd_stereo = _ds2_ds.requests.is_stereo;
 		_ds2_ds.snd_read = _ds2_ds.snd_send = _ds2_ds.snd_write = 0;
-		_ds2_ds.snd_started = true;
+		_ds2_ds.snd_status = AUDIO_STATUS_STARTING;
 
 		_add_pending_send(PENDING_SEND_REQUESTS);
 		DS2_LeaveCriticalSection(section);
@@ -100,20 +113,20 @@ int DS2_StartAudio(uint16_t frequency, uint16_t buffer_size, bool is_16bit, bool
 
 void DS2_StopAudio(void)
 {
-	if (!_ds2_ds.snd_started) {
+	/* Wait until the audio is fully started before stopping it. */
+	DS2_StartAwait();
+	while (_ds2_ds.snd_status == AUDIO_STATUS_STARTING)
+		DS2_AwaitInterrupt();
+	DS2_StopAwait();
+
+	if (_ds2_ds.snd_status == AUDIO_STATUS_STARTED) {
 		uint32_t section = DS2_EnterCriticalSection();
 
 		_ds2_ds.requests.stop_audio = 1;
 
-		_ds2_ds.snd_started = false;
-		_ds2_ds.snd_freq = 0;
-		_ds2_ds.snd_16bit = false;
-		_ds2_ds.snd_stereo = false;
-		_ds2_ds.snd_size_shift = 0;
+		_ds2_ds.snd_status = AUDIO_STATUS_STOPPING;
 		free(_ds2_ds.snd_buffer);
 		_ds2_ds.snd_buffer = NULL;
-		_ds2_ds.snd_samples = 0;
-		_ds2_ds.snd_read = _ds2_ds.snd_send = _ds2_ds.snd_write = 0;
 		_remove_pending_send(PENDING_SEND_AUDIO);
 
 		_add_pending_send(PENDING_SEND_REQUESTS);

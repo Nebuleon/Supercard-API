@@ -103,7 +103,7 @@ static void init_variables(void)
 {
 	size_t i;
 
-	_ds2_ds.snd_started = false;
+	_ds2_ds.snd_status = AUDIO_STATUS_STOPPED;
 
 	_ds2_ds.txt_size = 0;
 

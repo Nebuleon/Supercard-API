@@ -38,6 +38,13 @@ struct _video_entry {
 	enum DS_Engine engine;
 };
 
+enum _audio_status {
+	AUDIO_STATUS_STOPPED,
+	AUDIO_STATUS_STOPPING,
+	AUDIO_STATUS_STARTED,
+	AUDIO_STATUS_STARTING
+};
+
 /* This struct contains all the variables used for communication with the
  * Nintendo DS. For quicker access, it should be kept under 32768 bytes. */
 struct __attribute__((aligned(32))) _ds2_ds {
@@ -71,8 +78,10 @@ struct __attribute__((aligned(32))) _ds2_ds {
 	 * it didn't see 0, and the queue is forever stuck. */
 	uint32_t pending_sends;
 
-	/* true if audio is playing; false if it's stopped. */
-	bool snd_started;
+	/* volatile because it can be modified by the card command interrupt handler,
+	 * and it's then tested in a loop to see if the sound has started or stopped
+	 * completely. */
+	volatile enum _audio_status snd_status;
 
 	/* The audio sampling frequency (samples per second). */
 	uint16_t snd_freq;

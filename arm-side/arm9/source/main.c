@@ -212,6 +212,18 @@ int main()
 			break;
 		}
 
+		case PENDING_SEND_AUDIO_STATUS:
+		{
+			union card_command command;
+			command.audio_status.status = audio_started;
+			REG_IME = IME_ENABLE;
+			command.audio_status.byte = CARD_COMMAND_AUDIO_STATUS_BYTE;
+			memset(command.audio_status.zero, 0, sizeof(command.audio_status.zero));
+			card_send_command(&command, 4);
+			card_ignore_reply();
+			break;
+		}
+
 		case PENDING_SEND_INPUT:
 		{
 			union card_command command;

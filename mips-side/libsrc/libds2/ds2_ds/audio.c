@@ -52,21 +52,6 @@ void _audio_dequeue(void)
 
 void _audio_consumed(size_t samples)
 {
-	/* Ignore any samples that are being marked by the DS as consumed when we
-	 * haven't sent that many. This is to correctly handle the case where the
-	 * sound was stopped via DS2_StopAudio, the request hasn't been sent yet,
-	 * and an audio_consumed packet was sent by the Nintendo DS while we have
-	 * no audio to mark as consumed anymore. */
-	size_t snd_send = _ds2_ds.snd_send, snd_read = _ds2_ds.snd_read;
-	size_t sent;
-
-	if (snd_send > snd_read)
-		sent = snd_send - snd_read;
-	else
-		sent = _ds2_ds.snd_samples - (snd_read - snd_send);
-	if (samples > sent)
-		samples = sent;
-
 	_ds2_ds.snd_read = _add_wrap_fast(_ds2_ds.snd_read, samples, _ds2_ds.snd_samples);
 }
 
@@ -74,7 +59,13 @@ int DS2_SubmitAudio(const void* data, size_t n)
 {
 	uint32_t section;
 
-	if (!_ds2_ds.snd_started)
+	/* Wait until the audio is fully started before submitting samples. */
+	DS2_StartAwait();
+	while (_ds2_ds.snd_status == AUDIO_STATUS_STARTING)
+		DS2_AwaitInterrupt();
+	DS2_StopAwait();
+
+	if (_ds2_ds.snd_status != AUDIO_STATUS_STARTED)
 		return EFAULT;
 	if (n == 0)
 		return 0;

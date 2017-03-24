@@ -27,6 +27,11 @@
 /* true if audio is started; false if it is stopped. */
 extern bool audio_started;
 
+/* true if the Supercard requires notifications after audio has been started
+ * or stopped, in order to avoid race conditions involving submission of new
+ * audio data and audio_consumed. */
+extern bool audio_status_required;
+
 /* The base-2 logarithm of the length in bytes of a sample. Can be used with
  * << to know how many bytes are taken up by a certain number of samples, or
  * >> to know how many samples fit in a certain number of bytes. */

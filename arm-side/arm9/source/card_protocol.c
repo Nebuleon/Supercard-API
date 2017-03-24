@@ -308,8 +308,12 @@ void link_establishment_protocol()
 
 	for (i = 0; i < sizeof(reply.reserved); i++) {
 		if (reply.reserved[i] != 0) {
-			fatal_link_error("Supercard protocol extension\n#%zu not supported", i);
+			fatal_link_error("Supercard protocol extension\n#%zu not supported", sizeof(reply.extensions) + i);
 		}
+	}
+
+	if (reply.extensions.audio_status) {
+		audio_status_required = true;
 	}
 
 	link_status = LINK_STATUS_ESTABLISHED;
