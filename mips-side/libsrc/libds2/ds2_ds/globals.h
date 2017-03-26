@@ -66,9 +66,6 @@ struct __attribute__((aligned(32))) _ds2_ds {
 	 * reads from getting interrupted by writes of a new RTC value from the DS. */
 	struct DS_RTC rtc __attribute__((aligned(4)));
 
-	/* DMA channel used by the communication link to the DS. */
-	int dma_channel;
-
 	/* Bitfield of things to be sent to the Nintendo DS when it asks for the send
 	 * queue. Whenever this hits 0, the end bit is sent, and further queued data
 	 * must be sent after triggering the card line.

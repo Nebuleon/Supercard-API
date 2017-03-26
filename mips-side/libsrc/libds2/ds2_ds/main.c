@@ -147,12 +147,6 @@ int _ds2_ds_init(void)
 		goto data_irq_failed;
 	}
 
-	if ((_ds2_ds.dma_channel = dma_request(NULL, 0, DMAC_DRSR_RS_AUTO,
-	     DMAC_DCMD_SAI | DMAC_DCMD_SWDH_32 | DMAC_DCMD_DWDH_16 | DMAC_DCMD_DS_32BIT)) < 0) {
-		dgprintf("Failed to reserve a DMA channel for writes to the Nintendo DS FIFO\n");
-		goto dma_failed;
-	}
-
 	init_variables();
 
 	/* MIPS-ARM9 SYNC AWAIT 2: We are waiting for the Nintendo DS to assert
@@ -200,9 +194,6 @@ int _ds2_ds_init(void)
 	DS2_StopAwait();
 
 	return 0;
-
-dma_failed:
-	irq_free(NDS_DATA_IRQ);
 
 data_irq_failed:
 	irq_free(NDS_CMD_IRQ);

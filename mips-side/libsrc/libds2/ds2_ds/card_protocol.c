@@ -17,7 +17,6 @@
  * along with it.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include <asm/cachectl.h>
 #include <string.h>
 
 #include "assert.h"
@@ -84,8 +83,10 @@ void _send_reply_4(uint32_t reply)
 
 void _send_reply(const void* reply, size_t reply_len)
 {
-	dcache_writeback_range(reply, reply_len);
-	dma_start(_ds2_ds.dma_channel, reply, (void*) CPLD_FIFO_WRITE_NDSRDATA_BASE, reply_len);
+	const uint32_t* reply_word = reply;
+	size_t i;
+	for (i = 0; i < reply_len / 4; i++)
+		_send_reply_4(*reply_word++);
 }
 
 void _send_video_reply(const void* reply, size_t reply_len, enum DS_Engine engine)
@@ -99,8 +100,8 @@ void _send_video_reply(const void* reply, size_t reply_len, enum DS_Engine engin
 
 static void _send_end(void)
 {
-	_ds2_ds.temp.words[0] = DATA_KIND_NONE | DATA_BYTE_COUNT(0) | DATA_END;
-	_send_reply(&_ds2_ds.temp, sizeof(_ds2_ds.temp));
+	_send_reply_4(DATA_KIND_NONE | DATA_BYTE_COUNT(0) | DATA_END);
+	_send_reply(&_ds2_ds.temp, 508);
 }
 
 void _link_establishment_protocol(const union card_command* command)

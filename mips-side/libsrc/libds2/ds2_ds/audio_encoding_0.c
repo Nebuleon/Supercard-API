@@ -32,7 +32,7 @@ size_t _audio_encoding_0(size_t snd_send, size_t snd_write)
 		if (samples > max_samples)
 			samples = max_samples;
 
-		memcpy(&_ds2_ds.temp.bytes[4],
+		memcpy(&_ds2_ds.temp,
 		       &_ds2_ds.snd_buffer[snd_send << _ds2_ds.snd_size_shift],
 		       samples << _ds2_ds.snd_size_shift);
 	} else {
@@ -45,16 +45,16 @@ size_t _audio_encoding_0(size_t snd_send, size_t snd_write)
 			samples_a = max_samples;
 		samples_b = samples - samples_a;
 
-		memcpy(&_ds2_ds.temp.bytes[4],
+		memcpy(&_ds2_ds.temp,
 		       &_ds2_ds.snd_buffer[snd_send << _ds2_ds.snd_size_shift],
 		       samples_a << _ds2_ds.snd_size_shift);
-		memcpy(&_ds2_ds.temp.bytes[4 + (samples_a << _ds2_ds.snd_size_shift)],
+		memcpy(&_ds2_ds.temp.bytes[samples_a << _ds2_ds.snd_size_shift],
 		       _ds2_ds.snd_buffer,
 		       samples_b << _ds2_ds.snd_size_shift);
 	}
 
-	_ds2_ds.temp.words[0] = DATA_KIND_AUDIO | DATA_ENCODING(0) | DATA_BYTE_COUNT(samples << _ds2_ds.snd_size_shift);
-	_send_reply(&_ds2_ds.temp, sizeof(_ds2_ds.temp));
+	_send_reply_4(DATA_KIND_AUDIO | DATA_ENCODING(0) | DATA_BYTE_COUNT(samples << _ds2_ds.snd_size_shift));
+	_send_reply(&_ds2_ds.temp, 508);
 
 	return samples;
 }

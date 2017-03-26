@@ -146,21 +146,13 @@ void _request_nds_reset(void)
 
 void _send_requests(void)
 {
-	/* All requests issued up to this point are sent, '_ds2_ds.requests' is
-	 * cleared, and requests are no longer pending. Any further requests will
-	 * go to a new packet. */
-	_ds2_ds.temp.words[0] = DATA_KIND_REQUESTS | DATA_ENCODING(0) | DATA_BYTE_COUNT(sizeof(_ds2_ds.requests));
-	memcpy(&_ds2_ds.temp.words[1], &_ds2_ds.requests, sizeof(_ds2_ds.requests));
+	_send_reply_4(DATA_KIND_REQUESTS | DATA_ENCODING(0) | DATA_BYTE_COUNT(sizeof(_ds2_ds.requests)));
+	_send_reply(&_ds2_ds.requests, sizeof(_ds2_ds.requests));
 
 	if (_ds2_ds.requests.reset) {
-		/* We're about to send the reset request. Wait for it to be fully
-		 * sent, then initiate our reset immediately. */
-		_send_reply(&_ds2_ds.temp, sizeof(_ds2_ds.temp));
-		dma_join(_ds2_ds.dma_channel);
 		_reset();
 	} else {
+		/* Any further requests will go to a new packet. */
 		memset(&_ds2_ds.requests, 0, sizeof(_ds2_ds.requests));
-
-		_send_reply(&_ds2_ds.temp, sizeof(_ds2_ds.temp));
 	}
 }
