@@ -241,7 +241,7 @@ void* realloc(void* data, size_t n)
 		/* Growing an existing allocation. */
 		struct chunk* next = chunk->next;
 		if (next != NULL && next->status == CHUNK_STATUS_FREE
-		 && next->size <= n - chunk->size) {
+		 && next->size >= n - chunk->size) {
 			/* If the next chunk is free and has sufficient space for the
 			 * remainder of the new size, we will merge this one with some of
 			 * it, making it used. */
@@ -249,10 +249,12 @@ void* realloc(void* data, size_t n)
 			return data_for(merge_with_next(chunk));
 		} else {
 			/* We must make a new allocation (which may fail), copy the old
-			 * allocation's contents into it and return it. */
+			 * allocation's contents into the new one, free the old one, and
+			 * return the new one. */
 			void* new_alloc = malloc(n);
 			if (new_alloc != NULL) {
 				memcpy(new_alloc, data, chunk->size);
+				free(data);
 			}
 			return new_alloc;
 		}
