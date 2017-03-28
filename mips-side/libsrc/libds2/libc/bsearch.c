@@ -20,24 +20,24 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-void* bsearch(const void* key, const void* base, size_t n, size_t size,
-	int (*comparison) (const void*, const void*))
+void* bsearch(const void* key, const void* a, size_t n, size_t s,
+	int (*cmp) (const void*, const void*))
 {
 	size_t lo = 0, hi = n;
 
 	while (lo != hi) {
 		size_t i = lo + (hi - lo) / 2;
-		void* element = (uint8_t*) base + i * size;
+		void* el = (uint8_t*) a + i * s;
 
 		/* The first argument when called from bsearch shall equal key.
 		 * - C99 */
-		int order = (*comparison) (key, element);
+		int order = cmp(key, el);
 		if (order < 0)
 			hi = i;
 		else if (order > 0)
 			lo = i + 1;
 		else
-			return element;
+			return el;
 	}
 
 	return NULL;

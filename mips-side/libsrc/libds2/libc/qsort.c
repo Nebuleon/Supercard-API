@@ -30,129 +30,80 @@
  * which has less work to do because all elements have been brought near their
  * final destination.
  *
- * The chosen stride sequence is either ... 63, 15, 3, 1 or ... 127, 31, 7, 1,
- * depending on the number of elements in the array. They are powers of 2 with
- * 1 subtracted from them. If they were powers of 2 outright, it would be more
- * likely that two elements to be compared, being a large stride apart, occupy
- * the same cache line and slow down the comparison and swap operations.
+ * The chosen stride sequence is ... 127, 31, 7, 1, which are powers of 2 with
+ * 1 subtracted from them, to utilise the cache efficiently.
  *
- * This Shell sort's computational complexity tends towards O(n^1.5).
+ * Shell sort's access pattern tends to be sequential. Its cache behavior is a
+ * bit tricky, but can be boiled down to sequential access among many streams.
+ * Thus, a processor with high cache associativity (= many ways per cache set)
+ * will be able to handle more of those streams. The stride has 1 removed from
+ * the power of 2 in order to help processors with low cache associativity; in
+ * those processors, the accesses being 1 element away from a power of 2 would
+ * sometimes allow the cache to hold elements from different strides in 2 sets
+ * instead of 2 ways, which the processor may not have.
  *
- * Shell sort's access pattern tends to be sequential:
+ * During each pass through the array with a new stride, with sufficient cache
+ * associativity:
  *
- * - The initial pass interleaves reads from the second half of the array with
- *   reads from the first half of the array. Therefore, the algorithm benefits
- *   from the processor reading whole cache lines following any element and it
- *   does not swap any element pairs that were not in the cache already.
- * - The final pass benefits from the processor reading whole cache lines near
- *   the elements it needs to read and write, and only needs the cache to hold
- *   the values of elements up to 7 indices away.
+ * - Reads from two strides are initially interleaved with each other, and, if
+ *   the processor reads whole cache lines surrounding any element accessed, a
+ *   certain number of accesses in both of those strides are essentially free.
+ * - More and more strides get added as the algorithm progresses. At a certain
+ *   point, the cache begins to replace lines that are actively being read but
+ *   not all of them are immediately lost due to the cache associativity.
  *
- * Therefore, the processor can stream large amounts of data through the cache
- * in these passes. The access pattern of the middle passes is different: they
- * move elements many strides away, and thus need to create more than 2 "cache
- * streams". Due to the stride sequence, these streams should not be accessing
- * the same cache lines, however.
+ * The final pass reads elements up to 7 away, so it benefits from prefetching
+ * of whole cache lines and no longer requires cache associativity.
  */
 
-static void swap(void* restrict el_t,
-	uint8_t* restrict el_a, uint8_t* restrict el_b,
-	size_t size)
+static inline uint8_t* el_ptr(void* base, size_t size, size_t i)
 {
-	if (el_t != NULL) {
-		memcpy(el_t, el_a, size);
-		memcpy(el_a, el_b, size);
-		memcpy(el_b, el_t, size);
-	} else {
-		size_t i;
-		uint8_t byte_t;
-		for (i = 0; i < size; i++) {
-			byte_t = *el_a;
-			*el_a++ = *el_b;
-			*el_b++ = byte_t;
-		}
-	}
+	return (uint8_t*) base + i * size;
 }
 
-static void shellsort(void* restrict el_t, void* restrict base,
-	size_t n, size_t stride, size_t size,
-	int (*comparison) (const void*, const void*))
+static void shellsort(void* a, size_t n, size_t stride, size_t s,
+	int (*cmp) (const void*, const void*))
 {
-	size_t i, j, hops;
-	size_t max_hops = 1; /* Stride hops allowed from 'i' to 0 */
-	size_t next_hop = stride; /* Number of elements until 'max_hops' increases */
+	uint8_t el_b[s];
+	size_t i, r;
 
 	for (i = stride; i < n; i++) {
-		next_hop--;
-		if (next_hop == 0) {
-			max_hops++;
-			next_hop = stride;
+		r = i;
+
+		memcpy(el_b, el_ptr(a, s, r), s);
+
+		while (r >= stride && cmp(el_ptr(a, s, r - stride), el_b) > 0) {
+			/* A sequence point occurs immediately before and immediately
+			 * after each call to the comparison function [as above], and
+			 * also between any call to the comparison function and any
+			 * movement of the objects passed as arguments to that call
+			 * [as below].
+			 * - C99 */
+			memcpy(el_ptr(a, s, r), el_ptr(a, s, r - stride), s);
+			r -= stride;
 		}
 
-		/* Move element 'i' to 'i - n * stride', where 'n' is between 1 and
-		 * 'max_hops', inclusive. 'j' tracks the value of 'n', and elements
-		 * are moved one stride at a time. */
-		for (hops = 0, j = i; hops < max_hops; hops++, j -= stride) {
-			void* el_a = (uint8_t*) base + (j - stride) * size;
-			void* el_b = (uint8_t*) base + j * size;
-			if ((*comparison) (el_a, el_b) > 0) {
-				/* A sequence point occurs immediately before and immediately
-				 * after each call to the comparison function [as above], and
-				 * also between any call to the comparison function and any
-				 * movement of the objects passed as arguments to that call
-				 * [as below].
-				 * - C99 */
-				swap(el_t, el_a, el_b, size);
-			}
+		if (r != i) {
+			memcpy(el_ptr(a, s, r), el_b, s);
 		}
 	}
 }
 
-static void inssort(void* restrict el_t, void* restrict base,
-	size_t n, size_t size,
-	int (*comparison) (const void*, const void*))
+void qsort(void* a, size_t n, size_t s, int (*cmp) (const void*, const void*))
 {
-	size_t i, j;
+	/* Select the initial stride of the Shell sort such that it's 1 less than
+	 * a power of 4 multiplied by 2 (..., 127, 31, 7, 1). If this sequence is
+	 * changed, make sure the final pass has a stride of 1 to perform a final
+	 * insertion sort. Currently, it does, because 7 / 4 == 1. */
+	size_t guess = 2, stride;
+	do {
+		stride = guess;
+		guess *= 4;
+	} while (guess > stride /* prevent overflow */ && guess < n);
+	stride--;
 
-	for (i = 1; i < n; i++) {
-		for (j = i; j >= 1; j--) {
-			void* el_a = (uint8_t*) base + (j - 1) * size;
-			void* el_b = (uint8_t*) base + j * size;
-			if ((*comparison) (el_a, el_b) > 0) {
-				/* A sequence point occurs immediately before and immediately
-				 * after each call to the comparison function [as above], and
-				 * also between any call to the comparison function and any
-				 * movement of the objects passed as arguments to that call
-				 * [as below].
-				 * - C99 */
-				swap(el_t, el_a, el_b, size);
-			}
-		}
-	}
-}
-
-void qsort(void* base, size_t n, size_t size,
-	int (*comparison) (const void*, const void*))
-{
-	if (n <= 1)
-		return;
-	else {
-		void* el_t = malloc(size); /* Temporary element for swaps */
-		/* Select the initial stride of the Shell sort such that it's 1 below
-		 * the largest power of 4 that fits in half of 'n'. */
-		size_t guess = 1, stride;
-		do {
-			stride = guess;
-			guess *= 4;
-		} while (guess > stride /* prevent overflow */ && guess < n / 2);
-		stride--;
-
-		while (stride > 1) {
-			shellsort(el_t, base, n, stride, size, comparison);
-			stride /= 4;
-		}
-		inssort(el_t, base, n, size, comparison);
-
-		free(el_t);
+	while (stride != 0) {
+		shellsort(a, n, stride, s, cmp);
+		stride /= 4;
 	}
 }

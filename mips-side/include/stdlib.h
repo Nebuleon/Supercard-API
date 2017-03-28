@@ -137,11 +137,11 @@ extern void exit(int status) __attribute__((noreturn, cold));
 
 extern void _Exit(int status) __attribute__((noreturn, cold));
 
-extern void* bsearch(const void* key, const void* base, size_t n, size_t size,
-	int (*comparison) (const void*, const void*));
+extern void* bsearch(const void* key, const void* a, size_t n, size_t s,
+	int (*cmp) (const void*, const void*));
 
-extern void qsort(void* base, size_t n, size_t size,
-	int (*comparison) (const void*, const void*));
+extern void qsort(void* a, size_t n, size_t s,
+	int (*cmp) (const void*, const void*));
 
 extern char* getenv(const char* var);
 
