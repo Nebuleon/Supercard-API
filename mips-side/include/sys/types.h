@@ -40,6 +40,7 @@ typedef unsigned int blksize_t;
 typedef unsigned int blkcnt_t;
 typedef unsigned int fsblkcnt_t;
 typedef unsigned int fsfilcnt_t;
+typedef __UINT32_TYPE__ useconds_t;
 
 /* Also defined in stddef.h, stdlib.h, string.h, time.h, wchar.h.
  * The name _SIZE_T_ is also used by sysdefs.h. */

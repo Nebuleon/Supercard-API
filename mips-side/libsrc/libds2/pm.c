@@ -26,6 +26,7 @@
 #include <errno.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include <unistd.h>
 
 #define DIV_COUNT   10
 
@@ -235,9 +236,14 @@ void _detect_clock(void)
 	DS2_GetClockSpeed(&cpu_hz, &mem_hz);
 }
 
-void usleep(unsigned int usec)
+int usleep(useconds_t usec)
 {
-	unsigned int i = usec * (cpu_hz / 2000000);
+	if (usec >= 1000000) {
+		errno = EINVAL;
+		return -1;
+	}
+
+	uint32_t i = usec * (cpu_hz / 2000000);
 
 	__asm__ __volatile__ (
 		"\t.set push\n"
@@ -249,4 +255,12 @@ void usleep(unsigned int usec)
 		: "=r" (i)
 		: "0" (i)
 	);
+	return 0;
+}
+
+unsigned int sleep(unsigned int seconds)
+{
+	for (; seconds > 0; seconds--)
+		usleep(999999);
+	return 0;
 }

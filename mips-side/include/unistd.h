@@ -65,8 +65,24 @@ extern int unlink(const char* file);
  *
  * Input:
  *   usec: The number of microseconds to wait.
+ * Returns:
+ *   0: Success.
+ *   -1, errno = EINVAL: 'usec' is not in the range 0..999999.
  */
-extern void usleep(unsigned int usec);
+extern int usleep(useconds_t usec);
+
+/*
+ * Causes the CPU to delay the given number of seconds.
+ *
+ * The CPU may delay for a bit longer if interrupts need to be handled.
+ *
+ * Input:
+ *   seconds: The number of seconds to wait.
+ * Returns:
+ *   0. POSIX specifies that the number of unslept seconds must be returned,
+ *   but this implementation doesn't have this kind of call interruption.
+ */
+extern unsigned int sleep(unsigned int seconds);
 
 extern ssize_t write(int fd, const void* src, size_t n);
 
