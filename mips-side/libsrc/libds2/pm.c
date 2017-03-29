@@ -22,46 +22,14 @@
  */
 
 #include "jz4740.h"
+#include "pm.h"
+#include <errno.h>
+#include <stdbool.h>
 #include <stdint.h>
-
-#include "clock.h"
-
-#define LCD_CLK 40000000    //40MHz
-
-#define PLL_LEVELS  16
-
-#define PLL_ELEMENTS 6
-/* These are indexes into pll_data[level]. */
-#define PLL_M        0  /* The PLL multiplier. 2 is removed from the value of the element. */
-#define PLL_N        1  /* The PLL divider. 2 is removed from the value of the element. */
-#define PLL_CDIV     2  /* The CPU clock frequency divider. div_data[element value] to convert. */
-#define PLL_HDIV     3  /* The system clock frequency divider. div_data[element value] to convert. */
-#define PLL_MDIV     4  /* The memory frequency divider. div_data[element value] to convert. */
-#define PLL_PDIV     5  /* The peripheral clock frequency divider. div_data[element value] to convert. */
 
 #define DIV_COUNT   10
 
-static const uint8_t pll_data[PLL_LEVELS][PLL_ELEMENTS] = {
-	// multipliers and dividers are relative to EXTAL, 24 MHz
-	// M,     N,     CDIV, HDIV, MDIV, PDIV          idx, raw, CCLK, HCLK, MCLK, PCLK
-	{ 10 - 2, 2 - 2,    1,    1,    1,    1 },  //   [0]  120,   60,   60,   60,   60
-	{ 10 - 2, 2 - 2,    0,    1,    1,    1 },  //   [1]  120,  120,   60,   60,   60
-	{ 10 - 2, 2 - 2,    0,    0,    0,    0 },  //   [2]  120,  120,  120,  120,  120
-	{ 12 - 2, 2 - 2,    0,    1,    1,    1 },  //   [3]  144,  144,   72,   72,   72
-	{ 16 - 2, 2 - 2,    0,    1,    1,    1 },  //   [4]  192,  192,   96,   96,   96
-	{ 17 - 2, 2 - 2,    0,    0,    1,    1 },  //   [5]  204,  204,  102,  102,  102
-	{ 20 - 2, 2 - 2,    0,    1,    1,    1 },  //   [6]  240,  240,  120,  120,  120
-	{ 22 - 2, 2 - 2,    0,    2,    2,    2 },  //   [7]  264,  264,   88,   88,   88
-	{ 24 - 2, 2 - 2,    0,    2,    2,    2 },  //   [8]  288,  288,   96,   96,   96
-	{ 25 - 2, 2 - 2,    0,    2,    2,    2 },  //   [9]  300,  300,  100,  100,  100
-	{ 28 - 2, 2 - 2,    0,    2,    2,    2 },  //  [10]  336,  336,  112,  112,  112
-	{ 30 - 2, 2 - 2,    0,    2,    2,    2 },  //  [11]  360,  360,  120,  120,  120
-	{ 32 - 2, 2 - 2,    0,    2,    2,    2 },  //  [12]  384,  384,  128,  128,  128
-	{ 33 - 2, 2 - 2,    0,    2,    2,    2 },  //  [13]  396,  396,  132,  132,  132
-
-	{ 33 - 2, 2 - 2,    0,    2,    2,    2 },  //  [14]  396,  396,  132,  132,  132
-	{ 33 - 2, 2 - 2,    0,    2,    2,    2 },  //  [15]  396,  396,  132,  132,  132
-};
+static uint32_t cpu_hz __attribute__((section(".noinit")));
 
 /* This applies to CDIV, HDIV, MDIV and PDIV. */
 static const uint8_t div_data[DIV_COUNT] = {
@@ -128,32 +96,90 @@ static void _sdram_convert(uint32_t pll_hz)
 	REG_EMC_RTCNT = tmp - 1;  /* Refresh SDRAM right now */
 }
 
-/* convert pll while program is running */
-static int _pm_pllconvert(size_t level)
+int DS2_SetClockSpeed(uint32_t* restrict cpu_hz, uint32_t* restrict mem_hz)
 {
-	uint32_t freq_b;
+	const uint32_t ext_hz = EXTAL_CLK;
+	/* A smaller N is better. (We simply use the minimum allowed value.) */
+	const uint32_t pll_n = 2;
+	const uint32_t min_pll_hz = (100000000 + ext_hz / pll_n - 1)
+		/ (ext_hz / pll_n) * (ext_hz / pll_n);
+	const uint32_t max_pll_hz = 500000000 / (ext_hz / pll_n) * (ext_hz / pll_n);
+
+	uint32_t hz = *cpu_hz, pll_m = 2, cdiv = 0, mdiv = 0;
 	uint32_t cpccr, cppcr;
 
-	if (level >= PLL_LEVELS) return -1;
+	/* If the requested CPU frequency would leave the PLL clock below 100 MHz,
+	 * increase the PLL clock (and require a CPU clock divider later). If this
+	 * is not done, the CPU clock can only be 108, 54, 36, 27... MHz. */
+	if (*cpu_hz < min_pll_hz) {
+		size_t pmul = 0;
+		while (pmul < DIV_COUNT && min_pll_hz / div_data[pmul] > *cpu_hz)
+			pmul++;
+		if (pmul >= DIV_COUNT)
+			return EINVAL;
+		hz = *cpu_hz * div_data[pmul];
+	}
 
-	freq_b = (pll_data[level][PLL_M] + 2) * EXTAL_CLK
-	       / (pll_data[level][PLL_N] + 2);
+	/* Restriction: The PLL, after multiplication by M and division by N, must
+	 * output between 100 MHz and 500 MHz. The Output Divider does not matter.
+	 * (The Output Divider is not currently implemented.) */
+	if (hz < min_pll_hz)
+		hz = min_pll_hz;
+	else if (hz > max_pll_hz)
+		hz = max_pll_hz;
 
-	_sdram_convert(freq_b / div_data[pll_data[level][PLL_MDIV]]);
+	/* Restriction: M must be between 2 and 513 inclusive. Met implicitly by
+	 * the requirement for the PLL to be between 100 MHz and 500 MHz, with N
+	 * = 2. */
+	pll_m = hz / (ext_hz / pll_n);
+	hz = ext_hz * pll_m / pll_n;
+
+	while (cdiv < DIV_COUNT && hz / div_data[cdiv] > *cpu_hz)
+		cdiv++;
+	while (mdiv < DIV_COUNT && hz / div_data[mdiv] > *mem_hz)
+		mdiv++;
+
+	/* Restrictions: CCLK must be an integral multiple of HCLK; HCLK is either
+	 * equal to MCLK or twice MCLK. (Currently, HCLK == MCLK.) */
+	if (cdiv >= DIV_COUNT || mdiv >= DIV_COUNT)
+		return EINVAL;
+	while (mdiv < DIV_COUNT && div_data[mdiv] % div_data[cdiv] != 0)
+		mdiv++;
+
+	/* Restriction: The frequency ratio of CCLK and HCLK cannot be 24 or 32.
+	 * (Currently, HCLK == MCLK.) */
+	if (mdiv >= DIV_COUNT)
+		return EINVAL;
+	if (div_data[cdiv] / div_data[mdiv] >= 24)
+		return EINVAL;
+
+	/* Empirical evidence suggests that a transition from 360 MHz to any clock
+	 * speed above 100 MHz for the CPU with a memory divider of 1 is unstable.
+	 * Set the dividers to 2 in that case. */
+	if (div_data[mdiv] == 1 && hz / div_data[cdiv] >= 100000000) {
+		hz *= 2;
+		cdiv++;
+		mdiv++;
+	}
+
+	*cpu_hz = hz / div_data[cdiv];
+	*mem_hz = hz / div_data[mdiv];
+
+	_sdram_convert(hz / div_data[mdiv]);
 
 	cpccr = REG_CPM_CPCCR;
 	cppcr = REG_CPM_CPPCR;
 
 	cppcr &= ~(CPM_CPPCR_PLLM_MASK | CPM_CPPCR_PLLN_MASK);
-	cppcr |= (pll_data[level][PLL_M] << CPM_CPPCR_PLLM_BIT)
-	       | (pll_data[level][PLL_N] << CPM_CPPCR_PLLN_BIT);
+	cppcr |= ((pll_m - 2) << CPM_CPPCR_PLLM_BIT)
+	       | ((pll_n - 2) << CPM_CPPCR_PLLN_BIT);
 
 	cpccr &= ~(CPM_CPCCR_CDIV_MASK | CPM_CPCCR_HDIV_MASK | CPM_CPCCR_PDIV_MASK
 	         | CPM_CPCCR_MDIV_MASK | CPM_CPCCR_LDIV_MASK);
-	cpccr |= (pll_data[level][PLL_CDIV] << CPM_CPCCR_CDIV_BIT)
-	       | (pll_data[level][PLL_HDIV] << CPM_CPCCR_HDIV_BIT)
-	       | (pll_data[level][PLL_MDIV] << CPM_CPCCR_MDIV_BIT)
-	       | (pll_data[level][PLL_PDIV] << CPM_CPCCR_PDIV_BIT)
+	cpccr |= (cdiv << CPM_CPCCR_CDIV_BIT)
+	       | (mdiv << CPM_CPCCR_HDIV_BIT)
+	       | (mdiv << CPM_CPCCR_MDIV_BIT)
+	       | (mdiv << CPM_CPCCR_PDIV_BIT)
 	       | (31 << CPM_CPCCR_LDIV_BIT) /* LCD device clock frequency <= 150 MHz */;
 
 	REG_CPM_CPCCR = cpccr;
@@ -167,15 +193,60 @@ static int _pm_pllconvert(size_t level)
 
 int DS2_LowClockSpeed(void)
 {
-	return _pm_pllconvert(11);
+	uint32_t cpu_hz = UINT32_C(60000000), mem_hz = UINT32_C(60000000);
+	return DS2_SetClockSpeed(&cpu_hz, &mem_hz);
 }
 
 int DS2_NominalClockSpeed(void)
 {
-	return _pm_pllconvert(11);
+	uint32_t cpu_hz = UINT32_C(360000000), mem_hz = UINT32_C(120000000);
+	return DS2_SetClockSpeed(&cpu_hz, &mem_hz);
 }
 
 int DS2_HighClockSpeed(void)
 {
-	return _pm_pllconvert(11);
+	uint32_t cpu_hz = UINT32_C(396000000), mem_hz = UINT32_C(132000000);
+	return DS2_SetClockSpeed(&cpu_hz, &mem_hz);
+}
+
+int DS2_GetClockSpeed(uint32_t* restrict cpu_hz, uint32_t* restrict mem_hz)
+{
+	static const uint8_t out_div_shifts[4] = { 0, 1, 1, 2 };
+
+	uint32_t cppcr = REG_CPM_CPPCR, cpccr = REG_CPM_CPCCR;
+	uint32_t hz;
+
+	if ((cppcr & CPM_CPPCR_PLLEN) && !(cppcr & CPM_CPPCR_PLLBP)) {
+		uint32_t pll_m = (cppcr & CPM_CPPCR_PLLM_MASK) >> CPM_CPPCR_PLLM_BIT;
+		uint32_t pll_n = (cppcr & CPM_CPPCR_PLLN_MASK) >> CPM_CPPCR_PLLN_BIT;
+		uint32_t pll_no = (cppcr & CPM_CPPCR_PLLOD_MASK) >> CPM_CPPCR_PLLOD_BIT;
+		hz = (EXTAL_CLK >> out_div_shifts[pll_no]) / (pll_n + 2) * (pll_m + 2);
+	} else
+		hz = EXTAL_CLK;
+
+	*cpu_hz = hz / div_data[(cpccr & CPM_CPCCR_CDIV_MASK) >> CPM_CPCCR_CDIV_BIT];
+	*mem_hz = hz / div_data[(cpccr & CPM_CPCCR_MDIV_MASK) >> CPM_CPCCR_MDIV_BIT];
+	return 0;
+}
+
+void _detect_clock(void)
+{
+	uint32_t mem_hz;
+	DS2_GetClockSpeed(&cpu_hz, &mem_hz);
+}
+
+void usleep(unsigned int usec)
+{
+	unsigned int i = usec * (cpu_hz / 2000000);
+
+	__asm__ __volatile__ (
+		"\t.set push\n"
+		"\t.set noreorder\n"
+		"1:\n\t"
+		"bne\t%0, $0, 1b\n\t"
+		"addiu\t%0, %0, -1\n\t"
+		".set pop\n"
+		: "=r" (i)
+		: "0" (i)
+	);
 }

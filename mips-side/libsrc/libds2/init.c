@@ -29,6 +29,7 @@
 #include "dma.h"
 #include "intc.h"
 #include "gpio.h"
+#include "pm.h"
 #include "sys_time.h"
 
 #define EXCEPTION_HANDLER_LEN 0x10

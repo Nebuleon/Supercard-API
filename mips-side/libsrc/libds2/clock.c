@@ -22,13 +22,6 @@
 #include "bsp.h"
 #include "jz4740.h"
 
-static const unsigned char FR2n[] = {
-	1, 2, 3, 4, 6, 8, 12, 16, 24, 32
-};
-
-static unsigned int _pllout __attribute__((section(".noinit")));
-static unsigned int _iclk __attribute__((section(".noinit")));
-
 void _clock_init(void)
 {
 	REG_CPM_CPCCR = CPM_CPCCR_CLKOEN | CPM_CPCCR_PCS | CPM_CPCCR_CE
@@ -43,26 +36,4 @@ void _clock_init(void)
 	              | CPM_CPPCR_PLLEN
 	              | (17 << CPM_CPPCR_PLLST_BIT) /* 17/32768 s to stabilise */;
 	while (!(REG_CPM_CPPCR & CPM_CPPCR_PLLS)); /* Wait for the PLL to stabilise */
-}
-
-void _detect_clock(void)
-{
-	_pllout = (__cpm_get_pllm() + 2) * EXTAL_CLK / (__cpm_get_plln() + 2);
-	_iclk = _pllout / FR2n[__cpm_get_cdiv()];
-}
-
-void usleep(unsigned int usec)
-{
-	unsigned int i = usec * (_iclk / 2000000);
-
-	__asm__ __volatile__ (
-		"\t.set push\n"
-		"\t.set noreorder\n"
-		"1:\n\t"
-		"bne\t%0, $0, 1b\n\t"
-		"addiu\t%0, %0, -1\n\t"
-		".set pop\n"
-		: "=r" (i)
-		: "0" (i)
-	);
 }

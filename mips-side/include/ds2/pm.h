@@ -20,35 +20,73 @@
 #ifndef __DS2_PM_H__
 #define __DS2_PM_H__
 
+#include <stdint.h>
+
 /*
  * Requests the lowest stable clock speed for the Supercard DSTwo's internal
- * CPU. Currently, this is 360 MHz.
+ * CPU and RAM. Currently, this is 60 MHz for both.
  *
  * Returns:
- *   0 on success.
- *   -1 if the request failed.
+ *   0: Success.
+ *   EINVAL: A clock speed is either too low or too high to be represented in
+ *     the Supercard DSTwo's power management registers. (Should not happen.)
  */
 extern int DS2_LowClockSpeed(void);
 
 /*
- * Requests the nominal clock speed for the Supercard DSTwo's internal CPU.
- * This is 360 MHz.
+ * Requests the nominal clock speed for the Supercard DSTwo's internal CPU
+ * and RAM. This is 360 MHz for the CPU and 120 MHz for the RAM.
  *
  * Returns:
- *   0 on success.
- *   -1 if the request failed.
+ *   0: Success.
+ *   EINVAL: A clock speed is either too low or too high to be represented in
+ *     the Supercard DSTwo's power management registers. (Should not happen.)
  */
 extern int DS2_NominalClockSpeed(void);
 
 /*
  * Requests the highest stable clock speed for the Supercard DSTwo's internal
- * CPU. Currently, this is 360 MHz.
+ * CPU and RAM. Currently, this is 396 MHz for the CPU and 132 MHz for the
+ * RAM.
  *
  * Returns:
- *   0 on success.
- *   -1 if the request failed.
+ *   0: Success.
+ *   EINVAL: A clock speed is either too low or too high to be represented in
+ *     the Supercard DSTwo's power management registers. (Should not happen.)
  */
 extern int DS2_HighClockSpeed(void);
+
+/*
+ * Gets the current clock speed for the Supercard DSTwo's internal CPU and
+ * RAM.
+ *
+ * Output:
+ *   cpu_hz: Updated with the current CPU clock speed in Hz.
+ *   mem_hz: Updated with the current RAM clock speed in Hz.
+ * Returns:
+ *   0: Success.
+ *   Any other value: Failure. (No specific codes are defined.)
+ */
+extern int DS2_GetClockSpeed(uint32_t* restrict cpu_hz, uint32_t* restrict mem_hz);
+
+/*
+ * Sets the current clock speed for the Supercard DSTwo's internal CPU and
+ * RAM.
+ *
+ * Input:
+ *   cpu_hz: The requested CPU clock speed in Hz.
+ *   mem_hz: The requested RAM clock speed in Hz.
+ * Output:
+ *   cpu_hz: If successful, this is updated with the CPU clock speed that was
+ *     achieved. It will be less than or equal to its initial value.
+ *   mem_hz: If successful, this is updated with the RAM clock speed that was
+ *     achieved. It will be less than or equal to its initial value.
+ * Returns:
+ *   0: Success.
+ *   EINVAL: A clock speed is either too low or too high to be represented in
+ *     the Supercard DSTwo's power management registers.
+ */
+extern int DS2_SetClockSpeed(uint32_t* restrict cpu_hz, uint32_t* restrict mem_hz);
 
 /*
  * Enters an idle state, waiting for the next interrupt.

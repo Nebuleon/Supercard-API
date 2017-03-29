@@ -17,9 +17,9 @@
  * along with it.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#ifndef __CLOCK_H__
-#define __CLOCK_H__
+#ifndef __PM_H__
+#define __PM_H__
 
-extern void _clock_init(void);
+extern void _detect_clock(void);
 
-#endif /* !__CLOCK_H__ */
+#endif /* !__PM_H__ */
