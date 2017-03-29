@@ -8,7 +8,9 @@
     .extern  _ds2_init_fs
     .extern  _ds2_ds_init
     .extern  _heap_init
-    .extern  ds2_main
+    .extern  malloc
+    .extern  main
+    .extern  free
     .extern  exit
     .extern  _gp
     .extern  __all_end
@@ -107,14 +109,32 @@ _start:
     jal     _ds2_init_fs
     nop                                # cannot delay usefully here
 
-    /* Call int ds2_main(void). */
+    /* Call int main(int argc, char** argv). */
     /* TODO Implement an argv protocol */
-    /* TODO Rename ds2_main to main */
-    jal     ds2_main
-    nop                                # cannot delay usefully here
+    jal     malloc
+    ori     a0, zero, 4                # temp = malloc(4)
 
-    j       exit                       # exit(ds2_main());
-    or      a0, v0, zero               # (delay slot) argument 1 = return value
+    beq     v0, zero, exit_fail        # if (temp == NULL) goto exit_fail
+    or      s0, v0, zero               # (delay slot) main() will preserve this
+
+    or      a1, v0, zero               # argv = temp
+
+    /* "The value of argv[argc] shall be 0." - C99 */
+    sw      zero, 0(v0)                # argv[argc] = 0
+
+    jal     main
+    or      a0, zero, zero             # (delay slot) argc = 0
+
+    or      s1, v0, zero               # grab the return value from main()
+    jal     free
+    or      a0, s0, zero               # (delay slot) free(argv)
+
+2:  j       exit                       # exit(main());
+    or      a0, s1, zero               # (delay slot) argument 1 = return value
+
+exit_fail:
+    b       2b
+    ori     s1, zero, 1
 
     .end     _start
 
