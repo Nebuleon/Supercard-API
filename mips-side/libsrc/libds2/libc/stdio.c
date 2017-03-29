@@ -48,7 +48,7 @@ FILE* const stderr = (FILE*) &_std_files[2];
 #define IS_STDOUT(handle) ((uintptr_t) (handle) == (uintptr_t) &_std_files[1])
 #define IS_STDERR(handle) ((uintptr_t) (handle) == (uintptr_t) &_std_files[2])
 
-bool DS2_InitFS(void)
+bool _ds2_init_fs(void)
 {
 	return fatInitDefault();
 }

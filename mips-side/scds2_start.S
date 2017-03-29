@@ -5,6 +5,7 @@
     .set     noat
 
     .extern  _ds2_init
+    .extern  _ds2_init_fs
     .extern  _ds2_ds_init
     .extern  _heap_init
     .extern  ds2_main
@@ -101,6 +102,9 @@ _start:
     nop                                # cannot delay usefully here
 
     jal     _ds2_ds_init
+    nop                                # cannot delay usefully here
+
+    jal     _ds2_init_fs
     nop                                # cannot delay usefully here
 
     /* Call int ds2_main(void). */
