@@ -25,22 +25,28 @@ extern "C"
 {
 #endif
 
-typedef long off_t;
+typedef __INT32_TYPE__ off_t;
 
 /* Also defined in dirent.h. */
 #ifndef _INO_T_
 #  define _INO_T_
-typedef unsigned int ino_t;
+typedef __UINT32_TYPE__ ino_t;
 #endif
-typedef unsigned int dev_t;
-typedef unsigned int nlink_t;
-typedef unsigned int uid_t;
-typedef unsigned int gid_t;
-typedef unsigned int blksize_t;
-typedef unsigned int blkcnt_t;
-typedef unsigned int fsblkcnt_t;
-typedef unsigned int fsfilcnt_t;
+typedef __UINT32_TYPE__ dev_t;
+typedef __UINT32_TYPE__ nlink_t;
+typedef __UINT32_TYPE__ uid_t;
+typedef __UINT32_TYPE__ gid_t;
+typedef __UINT32_TYPE__ blksize_t;
+typedef __UINT32_TYPE__ blkcnt_t;
+typedef __UINT32_TYPE__ fsblkcnt_t;
+typedef __UINT32_TYPE__ fsfilcnt_t;
 typedef __UINT32_TYPE__ useconds_t;
+
+/* Also defined in time.h. */
+#ifndef _TIME_T_
+#  define _TIME_T_
+typedef __UINT32_TYPE__ time_t;
+#endif
 
 /* Also defined in stddef.h, stdlib.h, string.h, time.h, wchar.h.
  * The name _SIZE_T_ is also used by sysdefs.h. */

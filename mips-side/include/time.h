@@ -34,7 +34,11 @@ typedef __SIZE_TYPE__ size_t;
 
 typedef __UINT32_TYPE__ clock_t;
 
-typedef unsigned int time_t;
+/* Also defined in sys/types.h. */
+#ifndef _TIME_T_
+#  define _TIME_T_
+typedef __UINT32_TYPE__ time_t;
+#endif
 
 struct tm {
 	int tm_sec;    // seconds after the minute: 0..59, 0..60

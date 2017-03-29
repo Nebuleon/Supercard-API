@@ -23,7 +23,7 @@
 /* Also defined in sys/types.h. */
 #ifndef _INO_T_
 #  define _INO_T_
-typedef unsigned int ino_t;
+typedef __UINT32_TYPE__ ino_t;
 #endif
 
 struct dirent {
