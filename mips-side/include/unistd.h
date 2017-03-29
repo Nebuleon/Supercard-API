@@ -84,6 +84,9 @@ extern int usleep(useconds_t usec);
  */
 extern unsigned int sleep(unsigned int seconds);
 
+/* Copies data while reversing pairs of bytes. */
+extern void swab(const void *from, void *to, ssize_t n);
+
 extern ssize_t write(int fd, const void* src, size_t n);
 
 #endif /* !__UNISTD_H__ */
