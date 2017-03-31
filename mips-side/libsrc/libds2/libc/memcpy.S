@@ -43,106 +43,221 @@
      *   Argument 1.
      */
 memcpy:
-    # If we're asked to copy fewer than 16 bytes, it's more efficient to just
-    # copy bytes than to compute the misalignment mismatch, prefix size and
-    # suffix size.
-    or      v0, a0, zero
-    sltiu   t0, a2, 16
-    bne     t0, zero, suffix
-    addu    a3, a0, a2                 # (delay slot) a3 = end of dst (exclusive bound)
+    # Dispatch to the proper implementation.
+    # The implementations are named according to the kind of work they do:
+    # - b, w, c: byte, word, cache line;
+    # - u, a: unaligned (source), aligned (both);
+    # - p, s: prefix, suffix.
+    # - a_b: 'b' enabling the use of 'a'.
+    # All implementations expect to end at a3 (dst + n), an exclusive bound.
+    # a) Copying fewer than 16 bytes. Avoid computing too much auxiliary stuff
+    #    and just copy bytes.
+    sltiu   t7, a2, 16
+    or      v0, a0, zero               # memcpy returns argument 1
+    bne     t7, zero, bs
+    addu    a3, a0, a2                 # (delay slot) provide a3 to everyone
 
+    # Word and cache line implementations have access to t0 and t1, the
+    # misalignments relative to 4 bytes in a0 and a1.
+    # b) Copying fewer than 256 bytes. We'll copy words, which means we will
+    # dispatch to a word copier, either aligned or unaligned.
+    sltiu   t7, a2, 256
     andi    t0, a0, 3                  # t0 = misalignment in a0 (dst)
-    andi    t1, a1, 3                  # t1 = misalignment in a1 (src)
-    bne     t0, t1, suffix             # misalignments mismatch; just copy bytes
-    nop                                # cannot delay usefully here
+    bne     t7, zero, w_bp
+    andi    t1, a1, 3                  # (delay slot) same for t1 and a1 (src)
 
-    # Misalignments match; we are certain to be able to copy words at some
-    # point. If we're copying more than 256 bytes, go to the version that
-    # copies entire cache lines.
-    sltiu   t2, a2, 256
-    beq     t2, zero, 5f
-    nop                                # cannot delay usefully here
-
-    beq     t0, zero, words
-    subu    t1, a0, t1                 # (delay slot) delete the misalignment
-    addiu   t1, t1, 4                  # add 4; that's where the prefix ends
-
-1:  lbu     t2, 0(a1)
+    # c) Copying 256 bytes or more. We'll copy cache lines, which means we
+    # will dispatch to a cache line copier, either aligned or unaligned.
+c_wp_bp:
+    beq     t0, zero, c_wp             # no byte misalignment?
+    li      t4, 32                     # (delay slot) t4 = cache line size
+    li      t3, 4
+    subu    t3, t3, t0                 # prefix bytes = 4 - misalignment (dst)
+5:  lbu     t5, 0(a1)
     # Let the load complete in parallel with these.
+    addiu   t3, t3, -1
     addiu   a0, a0, 1
     addiu   a1, a1, 1
-    bne     a0, t1, 1b
-    sb      t2, -1(a0)                 # (delay slot) store to 0(old a0)
+    bne     t3, zero, 5b
+    sb      t5, -1(a0)                 # (delay slot) store to 0(old a0)
 
-words:
-    srl     t1, a3, 2                  # store in t1 the end of aligned words,
-    sll     t1, t1, 2                  # so we can find the end with BNE
+c_wp:
+    # Cache line implementations have access to t2, the misalignment relative
+    # to cache lines in a0 (dst).
+    bne     t0, t1, cu_wup             # misalignments mismatch
+    andi    t2, a0, 0x1F               # (delay slot) cache line misalignment
 
-2:  lw      t2, 0(a1)
+ca_wap:
+    subu    t3, t4, t2                 # prefix bytes = size - misalignment
+    srl     t3, t3, 2                  # round down to words
+    beq     t3, zero, ca               # no words to copy?
+    srl     t8, a3, 5                  # (delay slot) [see ca for comments]
+2:  lw      t5, 0(a1)
+    # Let the load complete in parallel with these.
+    addiu   t3, t3, -1
+    addiu   a0, a0, 4
+    addiu   a1, a1, 4
+    bne     t3, zero, 2b
+    sw      t5, -4(a0)                 # (delay slot) store to 0(old a0)
+
+ca:
+    # Store, in t8, the end of the portion we can store as whole cache lines,
+    # so that we can find the end with BNE. (Part of this was done by ca_wap.)
+    sll     t8, t8, 5
+
+3:  pref    4, 0(a1)                   # LoadStreamed: expect this data not to
+    pref    4, 28(a1)                  # be reused (+ 32 bytes)
+    pref    30, 0(a0)                  # PrepareForStore: clear a cache line
+                                       # without loading data from RAM for it
+    lw      t0, 0(a1)
+    lw      t1, 4(a1)
+    lw      t2, 8(a1)
+    lw      t3, 12(a1)
+    lw      t4, 16(a1)
+    lw      t5, 20(a1)
+    lw      t6, 24(a1)
+    lw      t7, 28(a1)
+    # Let the loads complete in parallel with these.
+    addiu   a0, a0, 32
+    addiu   a1, a1, 32
+    sw      t0, -32(a0)
+    sw      t1, -28(a0)
+    sw      t2, -24(a0)
+    sw      t3, -20(a0)
+    sw      t4, -16(a0)
+    sw      t5, -12(a0)
+    sw      t6, -8(a0)
+    bne     a0, t8, 3b
+    sw      t7, -4(a0)                 # (delay slot) store to 28(old a0)
+
+was:
+    # Store, in t8, the end of the portion we can store as whole words, so
+    # that we can find the end with BNE.
+    srl     t8, a3, 2
+    sll     t8, t8, 2
+    beq     a0, t8, bs                 # we can't copy any words?
+    nop                                # cannot delay usefully here
+4:  lw      t5, 0(a1)
     # Let the load complete in parallel with these.
     addiu   a0, a0, 4
     addiu   a1, a1, 4
-    bne     a0, t1, 2b
-    sw      t2, -4(a0)                 # (delay slot) store to 0(old a0)
+    bne     a0, t8, 4b
+    sw      t5, -4(a0)                 # (delay slot) store to 0(old a0)
 
-suffix:
-    beq     a0, a3, 4f
-    nop                                # cannot delay usefully here
-3:  lbu     t2, 0(a1)
-    # Let the load complete in parallel with these.
-    addiu   a0, a0, 1
-    addiu   a1, a1, 1
-    bne     a0, a3, 3b
-    sb      t2, -1(a0)                 # (delay slot) store to 0(old a0)
-
-4:  jr      ra
+    b       bs                         # check for any byte suffix
     nop                                # cannot delay usefully here
 
-5:  # Now prepare to memcpy entire cache lines. The misalignment is calculated
-    # relative to cache lines here, and only on 'dst', because 'src' need only
-    # be 4-byte-aligned when the cache-line copy loop starts.
-    andi    t0, a0, 0x1F               # t0 = misalignment in 'dst'
-    beq     t0, zero, lines
-    subu    t0, a0, t0                 # (delay slot) delete the misalignment
-    addiu   t0, t0, 32                 # add this; that's where the prefix ends
-
-6:  lbu     t2, 0(a1)
+cu_wup:
+    subu    t3, t4, t2                 # prefix bytes = 32 - misalignment
+    srl     t3, t3, 2                  # round down to words
+    beq     t3, zero, cu               # no words to copy?
+    srl     t8, a3, 5                  # (delay slot) [see cu for comments]
+6:  ulw     t5, 0(a1)
     # Let the load complete in parallel with these.
-    addiu   a0, a0, 1
-    addiu   a1, a1, 1
-    bne     a0, t0, 6b
-    sb      t2, -1(a0)                 # (delay slot) store to 0(old a0)
+    addiu   t3, t3, -1
+    addiu   a0, a0, 4
+    addiu   a1, a1, 4
+    bne     t3, zero, 6b
+    sw      t5, -4(a0)                 # (delay slot) store to 0(old a0)
 
-lines:
-    srl     t0, a3, 5                  # store in t0 the end of cache lines,
-    sll     t0, t0, 5                  # so we can find the end with BNE
+cu:
+    # Store, in t8, the end of the portion we can store as whole cache lines,
+    # so that we can find the end with BNE. (Part of this was done by cu_wup.)
+    sll     t8, t8, 5
 
 7:  pref    4, 0(a1)                   # LoadStreamed: expect this data not to
     pref    4, 28(a1)                  # be reused (+ 32 bytes)
     pref    30, 0(a0)                  # PrepareForStore: clear a cache line
                                        # without loading data from RAM for it
-    lw      t1, 0(a1)
-    lw      t2, 4(a1)
-    lw      t3, 8(a1)
-    lw      t4, 12(a1)
-    lw      t5, 16(a1)
-    lw      t6, 20(a1)
-    lw      t7, 24(a1)
-    lw      t8, 28(a1)
+    ulw     t0, 0(a1)
+    ulw     t1, 4(a1)
+    ulw     t2, 8(a1)
+    ulw     t3, 12(a1)
+    ulw     t4, 16(a1)
+    ulw     t5, 20(a1)
+    ulw     t6, 24(a1)
+    ulw     t7, 28(a1)
     # Let the loads complete in parallel with these.
     addiu   a0, a0, 32
     addiu   a1, a1, 32
-    sw      t1, -32(a0)
-    sw      t2, -28(a0)
-    sw      t3, -24(a0)
-    sw      t4, -20(a0)
-    sw      t5, -16(a0)
-    sw      t6, -12(a0)
-    sw      t7, -8(a0)
-    bne     a0, t0, 7b
-    sw      t8, -4(a0)                 # (delay slot) store to 28(old a0)
+    sw      t0, -32(a0)
+    sw      t1, -28(a0)
+    sw      t2, -24(a0)
+    sw      t3, -20(a0)
+    sw      t4, -16(a0)
+    sw      t5, -12(a0)
+    sw      t6, -8(a0)
+    bne     a0, t8, 7b
+    sw      t7, -4(a0)                 # (delay slot) store to 28(old a0)
 
-    b       suffix
+wus:
+    # Store, in t8, the end of the portion we can store as whole words, so
+    # that we can find the end with BNE.
+    srl     t8, a3, 2
+    sll     t8, t8, 2
+    beq     a0, t8, bs                 # we can't copy any words?
+    nop                                # cannot delay usefully here
+8:  ulw     t5, 0(a1)
+    # Let the load complete in parallel with these.
+    addiu   a0, a0, 4
+    addiu   a1, a1, 4
+    bne     a0, t8, 8b
+    sw      t5, -4(a0)                 # (delay slot) store to 0(old a0)
+
+    b       bs                         # check for any byte suffix
+    nop                                # cannot delay usefully here
+
+w_bp:
+    beq     t0, zero, w                # no byte misalignment?
+    srl     t8, a3, 2                  # (delay slot) [see w for comments]
+    li      t3, 4
+    subu    t3, t3, t0                 # prefix bytes = 4 - misalignment
+9:  lbu     t5, 0(a1)
+    # Let the load complete in parallel with these.
+    addiu   t3, t3, -1
+    addiu   a0, a0, 1
+    addiu   a1, a1, 1
+    bne     t3, zero, 9b
+    sb      t5, -1(a0)                 # (delay slot) store to 0(old a0)
+
+w:
+    # Store, in t8, the end of the portion we can store as words, so that we
+    # can find the end with BNE. (Part of this was done by w_bp.)
+    beq     t0, t1, wa
+    sll     t8, t8, 2                  # (delay slot)
+
+wu:
+    ulw     t5, 0(a1)
+    # Let the load complete in parallel with these.
+    addiu   a0, a0, 4
+    addiu   a1, a1, 4
+    bne     a0, t8, wu
+    sw      t5, -4(a0)                 # (delay slot) store to 0(old a0)
+
+    b       bs                         # check for any byte suffix
+    nop                                # cannot delay usefully here
+
+wa:
+    lw      t5, 0(a1)
+    # Let the load complete in parallel with these.
+    addiu   a0, a0, 4
+    addiu   a1, a1, 4
+    bne     a0, t8, wa
+    sw      t5, -4(a0)                 # (delay slot) store to 0(old a0)
+    # Fall through to bs.
+
+bs:
+    beq     a0, a3, end
+    nop                                # cannot delay usefully here
+10: lbu     t2, 0(a1)
+    # Let the load complete in parallel with these.
+    addiu   a0, a0, 1
+    addiu   a1, a1, 1
+    bne     a0, a3, 10b
+    sb      t2, -1(a0)                 # (delay slot) store to 0(old a0)
+
+end:
+    jr      ra
     nop                                # cannot delay usefully here
 
     .end     memcpy
