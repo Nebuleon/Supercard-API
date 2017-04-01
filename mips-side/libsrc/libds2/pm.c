@@ -43,62 +43,14 @@ static const uint8_t div_data[DIV_COUNT] = {
 
 static void _sdram_convert(uint32_t pll_hz)
 {
-	uint32_t ns, dmcr, rtcsr, tmp, div, divm;
+	const uint32_t ns = UINT32_C(1000000000) / pll_hz;
+	uint32_t delay;
 
-	dmcr = REG_EMC_DMCR;
+	delay = (SDRAM_TREF / ns) / 64 + 1;
+	if (delay > 0xFF) delay = 0xFF;
 
-	dmcr &= ~(EMC_DMCR_TRAS_MASK | EMC_DMCR_RCD_MASK | EMC_DMCR_TPC_MASK |
-	          EMC_DMCR_TRWL_MASK | EMC_DMCR_TRC_MASK);
-
-	ns = UINT32_C(1000000000) / pll_hz;
-	/* RAS# active time */
-	tmp = SDRAM_TRAS / ns;
-	if (tmp < 4) tmp = 4;
-	if (tmp > 11) tmp = 11;
-	dmcr |= ((tmp - 4) << EMC_DMCR_TRAS_BIT);
-
-	/* RAS# to CAS# delay */
-	tmp = SDRAM_RCD / ns;
-	if (tmp > 3) tmp = 3;
-	dmcr |= (tmp << EMC_DMCR_RCD_BIT);
-
-	/* RAS# precharge time */
-	tmp = SDRAM_TPC / ns;
-	if (tmp > 7) tmp = 7;
-	dmcr |= (tmp << EMC_DMCR_TPC_BIT);
-
-	/* Write latency */
-	tmp = SDRAM_TRWL / ns;
-	if (tmp > 3) tmp = 3;
-	dmcr |= (tmp << EMC_DMCR_TRWL_BIT);
-
-	/* RAS cycle time */
-	tmp = (SDRAM_TRAS + SDRAM_TPC) / ns;
-	if (tmp > 14) tmp = 14;
-	dmcr |= (((tmp + 1) >> 1) << EMC_DMCR_TRC_BIT);
-
-	REG_EMC_DMCR = dmcr;
-
-	rtcsr = REG_EMC_RTCSR;
-
-	/* Set the new refresh timing */
-	tmp = SDRAM_TREF / ns;
-	div = (tmp + 254) / 255;
-	if (div <= 4) div = 1;       // in units of CKO/4
-	else if (div <= 16) div = 2; // in units of CKO/16
-	else div = 3;                // in units of CKO/64
-
-	rtcsr &= ~EMC_RTCSR_CKS_MASK;
-	rtcsr |= div << EMC_RTCSR_CKS_BIT;
-
-	REG_EMC_RTCSR = rtcsr;
-
-	divm = 4 << (2 * div);
-
-	tmp = tmp / divm + 1;
-
-	REG_EMC_RTCOR = tmp;
-	REG_EMC_RTCNT = tmp - 1;  /* Refresh SDRAM right now */
+	REG_EMC_RTCOR = delay;
+	REG_EMC_RTCNT = delay - 1;  /* Refresh SDRAM right now */
 }
 
 int _clock_convert(uint32_t* restrict cpu_hz, uint32_t* restrict mem_hz)
