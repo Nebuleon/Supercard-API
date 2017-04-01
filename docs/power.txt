@@ -1,0 +1,45 @@
+The CPU and RAM inside the Supercard DSTwo can be underclocked to save power (in addition to suspending execution, which is done when waiting for various conditions related to audio, video and input), or overclocked to go faster.
+
+Unfortunately, not all clock speeds are stable in all conditions.
+
+The microSD card is initialised while the CPU is at 360 MHz. Because it's really initialised with a certain divider to the PLL (phase-locked loop) which the CPU clock happens to use, if the CPU is later underclocked or overclocked, so is the microSD card, proportionally to the CPU clock change.
+
+Of course, as with most overclocking, a certain amount is safe, but you shouldn't overdo it.
+
+=== Functions ===
+
+#include <ds2/pm.h>
+
+int DS2_LowClockSpeed(void);
+int DS2_HighClockSpeed(void);
+
+    Request the lowest safe underclock and overclock, respectively, for both the CPU and RAM. Current values can be found in the comments in include/ds2/pm.h if you need them.
+
+int DS2_NominalClockSpeed(void);
+
+    Requests the nominal clock speed for both the CPU and RAM, used at power-up. These are 360 MHz for the CPU and 120 MHz for the RAM.
+
+int DS2_GetClockSpeed(uint32_t* restrict cpu_hz, uint32_t* restrict mem_hz);
+
+    Retrieves the current clock speed of the CPU and RAM.
+
+    To use this function, you should declare two distinct variables of type uint32_t and call it like so:
+
+    uint32_t cpu_speed, mem_speed;
+    DS2_GetClockSpeed(&cpu_speed, &mem_speed);
+
+    Then, the variables you declared (without the & address operator) will contain the speeds in Hz.
+
+int DS2_SetClockSpeed(uint32_t* restrict cpu_hz, uint32_t* restrict mem_hz);
+
+    Similar to DS2_GetClockSpeed, except that the initial values of the variables used for the call matter and are used to change the clock speeds.
+
+    For example, if you've gotten certain values to use (either from a configuration file or from asking the user), and you have them in these variables:
+
+    uint32_t cpu_speed = ???, mem_speed = ???;
+    DS2_SetClockSpeed(&cpu_speed, &mem_speed);
+
+    The Supercard DSTwo will attempt to match your request exactly, but if it can't, it will pick the highest usable clock speeds lower than the request and place the speeds it used back into your variables:
+
+    printf("The Supercard picked these\nspeeds (in Hz):\nCPU: %" PRIu32 "\nRAM: %" PRIu32 "\n",
+        cpu_speed, mem_speed);
