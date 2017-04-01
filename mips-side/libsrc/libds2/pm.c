@@ -158,7 +158,9 @@ int DS2_SetClockSpeed(uint32_t* restrict cpu_hz, uint32_t* restrict mem_hz)
 	 * speed above 100 MHz for the CPU with a memory divider of 1 is unstable.
 	 * Set the dividers to 2 in that case. */
 	if (div_data[mdiv] == 1 && hz / div_data[cdiv] >= 100000000) {
-		hz *= 2;
+		hz = *cpu_hz < *mem_hz ? *cpu_hz : *mem_hz;
+		pll_m = (hz * 2) / (ext_hz / pll_n);
+		hz = ext_hz * pll_m / pll_n;
 		cdiv++;
 		mdiv++;
 	}
