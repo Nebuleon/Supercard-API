@@ -8,7 +8,7 @@ Current input refers to what the Supercard DSTwo last received from the Nintendo
 
 === Waiting for input ===
 
-GUI applications will often wait for the user's inputs to continue. Many input-related functions are available which will wait for certain buttons to be pressed or released for you. They will first check current inputs and, if the inputs don't satisfy the condition, they will stop execution on the processor and only recheck the condition when an interrupt occurs, saving power.
+GUI applications will often wait for the user's inputs to continue. Many input-related functions are available which will wait for certain buttons to be pressed or released for you. They will first check current inputs and, if the inputs don't satisfy the condition, they will suspend execution on the processor (see power.txt) and only recheck the condition when an interrupt occurs.
 
 === Checking if a button is pressed ===
 

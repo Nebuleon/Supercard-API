@@ -83,11 +83,15 @@ int DS2_UpdateScreen(enum DS_Engine engine);
 
     As the screen is being sent, which takes approximately 21 milliseconds, the Supercard DSTwo may see new contents that are being written for some lines of the screen, but not others. To prevent this from happening, use the DS2_AwaitScreenUpdate function on the same engine before writing any new contents.
 
+    This is a video update function. A call to any video update function while the screen it affects is still being sent will suspend execution (see power.txt).
+
 int DS2_FlipMainScreen(void);
 
     Begins to send the active screen of the Main Engine to the Nintendo DS, then returns with a new screen active. This allows the application to write a whole new screen. The initial contents of that new screen are somewhat defined: it is either fully black, or something that the application wrote in the past.
 
     Sending the screen will take approximately 21 milliseconds.
+
+    This is a video update function. A call to any video update function while the screen it affects is still being sent will suspend execution (see power.txt).
 
 int DS2_UpdateScreenPart(enum DS_Engine engine, size_t start_y, size_t end_y);
 
@@ -99,7 +103,7 @@ int DS2_FlipMainScreenPart(size_t start_y, size_t end_y);
 
 int DS2_AwaitScreenUpdate(enum DS_Engine engine);
 
-    Waits for all lines of the active screen of the given engine to have been sent to the Nintendo DS before returning.
+    Suspends execution (see power.txt) until all lines of the active screen of the given engine to have been sent to the Nintendo DS.
 
     If a call to this function is inserted before writes to the active screen, there is no possibility of the transmission grabbing any new pixels mixed with old pixels, preventing one cause of screen tearing.
 
@@ -146,7 +150,7 @@ int DS2_SetScreenBacklights(enum DS_Screen screens);
 
 void DS2_AwaitVBlank(void);
 
-    Waits for the next vertical blanking period on the Nintendo DS.
+    Suspends execution (see power.txt) until the next vertical blanking period starts on the Nintendo DS.
 
 #include <stdio.h>
 

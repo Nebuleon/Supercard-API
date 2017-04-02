@@ -1,10 +1,23 @@
-The CPU and RAM inside the Supercard DSTwo can be underclocked to save power (in addition to suspending execution, which is done when waiting for various conditions related to audio, video and input), or overclocked to go faster.
+=== Suspending execution to save power ===
 
-Unfortunately, not all clock speeds are stable in all conditions.
+The Supercard DSTwo receives interrupts from the Nintendo DS when it wants to:
 
-The microSD card is initialised while the CPU is at 360 MHz. Because it's really initialised with a certain divider to the PLL (phase-locked loop) which the CPU clock happens to use, if the CPU is later underclocked or overclocked, so is the microSD card, proportionally to the CPU clock change.
+- receive video, audio or other sorts of data; or
+- send a reading for the real-time clock or the buttons; or
+- notify the Supercard DSTwo that it has begun displaying a certain Main Screen or is in its vertical blanking period (see video.txt); or
+- notify the Supercard DSTwo that it has consumed some audio at the head of the ring buffer (see audio.txt).
 
-Of course, as with most overclocking, a certain amount is safe, but you shouldn't overdo it.
+Some functions wait for these notifications to arrive so that they can send more data, or because user code wants button readings matching certain conditions (see input.txt).
+
+In order to avoid wasting power, they wait for those notifications by suspending execution until the next interrupt. This helps even if the processor is left at its nominal frequency (see clock.txt).
+
+Functions are provided in <ds2/pm.h> to replicate this functionality in applications.
+
+=== Underclocking and overclocking ===
+
+The CPU and RAM inside the Supercard DSTwo can be underclocked to save power, or overclocked to go faster.
+
+See clock.txt for a discussion of the stability of various clock speeds.
 
 === Functions ===
 

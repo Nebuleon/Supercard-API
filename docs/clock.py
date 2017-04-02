@@ -4,6 +4,12 @@ from __future__ import division
 
 divs = [1, 2, 3, 4, 6, 8, 12, 16, 24, 32]
 
+safe_cpu_overclock = 1.1
+safe_ram_overclock = 1.5
+less_safe_cpu_overclock = 1.2
+less_safe_ram_overclock = 1.6
+required_cpu_msd_ratio = 3  # Guess based on knowledge gained as of 2017-04-02
+
 class Frequencies:
     def __init__(self, pll_mul, cpu_div, ram_div):
         self._pll_mul, self._cpu_div, self._ram_div = pll_mul, cpu_div, ram_div
@@ -38,25 +44,30 @@ def notes(f):
     elif f.pll() == 360 and f.cpu_div() == 1 and f.ram_div() == 3:
         return "The nominal clock speed"
 
-    cpu_oc, ram_oc = f.cpu() / 360, f.ram() / 120
-    similar = 0.999 <= cpu_oc / ram_oc <= 1.001
+    cpu_overclock, ram_overclock = f.cpu() / 360, f.ram() / 120
+    cpu_msd_ratio, cpu_msd2_ratio = f.cpu() / f.msd(), f.cpu() / f.msd2()
+    cpu_ram_similar = 0.999 <= cpu_overclock / ram_overclock <= 1.001
 
     stability = ""
-    if cpu_oc > 1.2 or ram_oc > 1.6:
+    if cpu_overclock > less_safe_cpu_overclock or ram_overclock > less_safe_ram_overclock:
         stability = " (likely unstable)"
-    elif cpu_oc > 1.1 or ram_oc > 1.5:
+    elif cpu_overclock > safe_cpu_overclock or ram_overclock > safe_ram_overclock:
         stability = " (less stable)"
-    elif cpu_oc > 1 or ram_oc > 1:
+    elif cpu_overclock > 1 or ram_overclock > 1:
         stability = " (stable)"
 
-    if cpu_oc > 1 and ram_oc > 1 and similar:
-        return "Overclocked %4.1f%%%s" % ((cpu_oc - 1) * 100, stability)
-    elif cpu_oc > 1 and ram_oc > 1:
-        return "CPU +%4.1f%%, RAM +%4.1f%%%s" % ((cpu_oc - 1) * 100, (ram_oc - 1) * 100, stability)
-    elif cpu_oc > 1:
-        return "CPU overclocked %4.1f%%%s" % ((cpu_oc - 1) * 100, stability)
-    elif ram_oc > 1:
-        return "RAM overclocked %4.1f%%%s" % ((ram_oc - 1) * 100, stability)
+    if cpu_overclock > 1 and ram_overclock > 1 and cpu_ram_similar:
+        return "Overclocked %4.1f%%%s" % ((cpu_overclock - 1) * 100, stability)
+    elif cpu_overclock > 1 and ram_overclock > 1:
+        return "CPU +%4.1f%%, RAM +%4.1f%%%s" % ((cpu_overclock - 1) * 100, (ram_overclock - 1) * 100, stability)
+    elif cpu_overclock > 1:
+        return "CPU overclocked %4.1f%%%s" % ((cpu_overclock - 1) * 100, stability)
+    elif ram_overclock > 1:
+        return "RAM overclocked %4.1f%%%s" % ((ram_overclock - 1) * 100, stability)
+    elif cpu_msd_ratio < required_cpu_msd_ratio and cpu_msd2_ratio < required_cpu_msd_ratio:
+        return "MSC may be too slow for microSD and HC"
+    elif cpu_msd2_ratio < required_cpu_msd_ratio:
+        return "MSC may be too slow for microSDHC"
 
     return ""
 
@@ -93,7 +104,7 @@ if __name__ == '__main__':
     fs = sorted(fs, key=Frequencies.ram, reverse=True)  # secondary sorting key
     fs = sorted(fs, key=Frequencies.cpu, reverse=True)  # primary sorting key
 
-    print "  PLL *mul    CPU /div    RAM /div    mSD    SD2  Notes"
+    print "  PLL *mul    CPU /div    RAM /div    mSD    SDHC  Notes"
     for f in fs:
         note = notes(f)
         line = "%5.1f *%-2d   %5.1f /%-2d   %5.1f /%-2d   %5.1f   %5.1f" % (f.pll(), f.pll_mul(), f.cpu(), f.cpu_div(), f.ram(), f.ram_div(), f.msd(), f.msd2())

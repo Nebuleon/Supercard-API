@@ -57,7 +57,7 @@ int DS2_SubmitAudio(const void* data, size_t n);
        true  |   false   | 2: int16_t
        true  |    true   | 4: int16_t int16_t
 
-    If the Supercard DSTwo's buffer cannot accommodate all 'n' samples, as many as can fit are submitted, then the Nintendo DS must report that some samples have been played before as many as can fit are submitted again, and so on until all 'n' samples are submitted to the Supercard DSTwo's buffer.
+    If the Supercard DSTwo's buffer cannot accommodate all 'n' samples, as many as can fit are submitted, then execution is suspended (see power.txt) until the Nintendo DS reports that some samples have been played. Then, as many as can fit are submitted again, and so on until all 'n' samples are submitted to the Supercard DSTwo's buffer and execution resumes.
 
 void DS2_StopAudio(void);
 
