@@ -67,6 +67,8 @@ def fits_constraints(f):
         return False  # The PLL output must be between 100 MHz and 500 MHz
     if f.ram_div() % f.cpu_div() != 0:
         return False  # The RAM divider must be a multiple of the CPU divider
+    if f.ram_div() / f.cpu_div() >= 24:
+        return False  # The ratio between the CPU and RAM clocks must be < 24
     if f.cpu() >= 100:
         if f.cpu() == f.ram() and f.cpu_div() != 2:
             return False  # Do not use unstable memory divider /1 over 100 MHz
