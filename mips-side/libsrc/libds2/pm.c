@@ -29,9 +29,6 @@
 #include <stdint.h>
 #include <unistd.h>
 
-#define NOMINAL_CPU_FREQ UINT32_C(360000000)
-#define NOMINAL_RAM_FREQ UINT32_C(120000000)
-
 #define DIV_COUNT   10
 
 static uint32_t cpu_hz __attribute__((section(".noinit")));
@@ -53,7 +50,7 @@ static void _sdram_convert(uint32_t pll_hz)
 	REG_EMC_RTCNT = delay - 1;  /* Refresh SDRAM right now */
 }
 
-int _clock_convert(uint32_t* restrict cpu_hz, uint32_t* restrict mem_hz)
+int DS2_SetClockSpeed(uint32_t* restrict cpu_hz, uint32_t* restrict mem_hz)
 {
 	const uint32_t ext_hz = EXTAL_CLK;
 	/* A smaller N is better. (We simply use the minimum allowed value.) */
@@ -147,32 +144,6 @@ int _clock_convert(uint32_t* restrict cpu_hz, uint32_t* restrict mem_hz)
 	while (!(REG_CPM_CPPCR & CPM_CPPCR_PLLS)); /* Wait for the PLL to stabilise */
 
 	_detect_clock();
-	return 0;
-}
-
-int DS2_SetClockSpeed(uint32_t* restrict cpu_hz, uint32_t* restrict mem_hz)
-{
-	uint32_t cur_cpu_hz, cur_mem_hz;
-	DS2_GetClockSpeed(&cur_cpu_hz, &cur_mem_hz);
-
-	/* Transitions between clock speeds are smoother if they go through the
-	 * nominal frequencies first. */
-	if (cur_cpu_hz != NOMINAL_CPU_FREQ || cur_mem_hz != NOMINAL_RAM_FREQ) {
-		int result;
-		cur_cpu_hz = NOMINAL_CPU_FREQ;
-		cur_mem_hz = NOMINAL_RAM_FREQ;
-		if ((result = _clock_convert(&cur_cpu_hz, &cur_mem_hz)) != 0) {
-			*cpu_hz = cur_cpu_hz;
-			*mem_hz = cur_mem_hz;
-			return result;
-		}
-	}
-
-	/* If the requests are for the nominal frequencies, they'd be wasteful
-	 * now. Otherwise, run them. */
-	if (*cpu_hz != NOMINAL_CPU_FREQ || *mem_hz != NOMINAL_RAM_FREQ) {
-		return _clock_convert(cpu_hz, mem_hz);
-	}
 	return 0;
 }
 
