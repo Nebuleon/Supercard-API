@@ -104,7 +104,7 @@ int DS2_SetClockSpeed(uint32_t* restrict cpu_hz, uint32_t* restrict mem_hz)
 	 * (Currently, HCLK == MCLK.) */
 	if (mdiv >= DIV_COUNT)
 		return EINVAL;
-	if (div_data[cdiv] / div_data[mdiv] >= 24)
+	if (div_data[mdiv] / div_data[cdiv] >= 24)
 		return EINVAL;
 
 	/* Empirical evidence suggests that a transition from 360 MHz to any clock
