@@ -23,6 +23,7 @@
 #include "audio.h"
 #include "card_protocol.h"
 #include "common_ipc.h"
+#include "main.h"
 #include "requests.h"
 #include "reset.h"
 #include "video.h"
@@ -49,7 +50,36 @@ void process_requests()
 		set_pending_swap(requests.swap_screens);
 	}
 	REG_IME = IME_ENABLE;
-	if (requests.reset) {
+	if (requests.change_backlight) {
+		fifoSendValue32(FIFO_USER_01, IPC_SET_BACKLIGHT
+			| SET_BACKLIGHT_DATA(requests.screen_backlights));
+	}
+	if (requests.shutdown) {
+		systemShutDown();
+	} else if (requests.sleep) {
+		/* This sleep is a lie. The real sleep (systemSleep()) does not wake
+		 * up properly. Sometimes, it sends the ARM7 into a stuck note; else
+		 * it might display the "Supercard did not send a reply to a command
+		 * within N frames" message. And those happen, annoyingly, only once
+		 * in a blue moon.
+		 *
+		 * So, we do the next best thing: we turn off both backlights, don't
+		 * send anything to the Supercard by only returning to the main loop
+		 * when the lid is opened back up, and display the blinking LED that
+		 * indicates the DS is sleeping (doesn't work on DSi).
+		 *
+		 * For this to work in any way, VBlank interrupts must stay on. They
+		 * will update the 'input' variable.
+		 */
+		fifoSendValue32(FIFO_USER_01, IPC_SET_BACKLIGHT | SET_BACKLIGHT_DATA(0));
+		ledBlink(1);
+
+		do {
+			swiIntrWait(0, IRQ_VBLANK);
+		} while (input.buttons & DS_BUTTON_LID);
+
+		ledBlink(0);
+	} else if (requests.reset) {
 		fifoSendValue32(FIFO_USER_01, IPC_START_RESET);
 		/* Next step: ARM7 main.c: fifo_value_handler */
 		reset_hardware();
@@ -72,8 +102,5 @@ void process_requests()
 		DC_FlushAll();
 		DC_InvalidateAll();
 		swiSoftReset();
-	} else if (requests.change_backlight) {
-		fifoSendValue32(FIFO_USER_01, IPC_SET_BACKLIGHT
-			| SET_BACKLIGHT_DATA(requests.screen_backlights));
 	}
 }

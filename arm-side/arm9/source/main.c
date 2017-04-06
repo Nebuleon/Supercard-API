@@ -35,7 +35,7 @@ static volatile DTCM_DATA uint32_t pending_sends;
 
 static struct DS_RTC rtc;
 
-static struct DS_InputState input;
+struct DS_InputState input;
 
 void add_pending_send(uint32_t mask)
 {

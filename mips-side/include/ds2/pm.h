@@ -88,6 +88,21 @@ extern int DS2_GetClockSpeed(uint32_t* restrict cpu_hz, uint32_t* restrict mem_h
  */
 extern int DS2_SetClockSpeed(uint32_t* restrict cpu_hz, uint32_t* restrict mem_hz);
 
+/* Requests that the Nintendo DS go to sleep, waiting for the lid to be open
+ * again before returning.
+ *
+ * This function is intended to be used when the lid is closed.
+ */
+extern void DS2_SystemSleep(void);
+
+/* Requests that the Nintendo DS be shut down immediately.
+ *
+ * Open files are not closed. This may cause a loss of data. This function is
+ * intended to be called when execution has been so compromised that it makes
+ * no sense to do anything else.
+ */
+extern void DS2_SystemShutDown(void);
+
 /*
  * Enters an idle state, waiting for the next interrupt.
  *

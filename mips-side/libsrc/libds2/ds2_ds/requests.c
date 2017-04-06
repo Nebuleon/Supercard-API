@@ -22,6 +22,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ds2/ds.h>
 #include <ds2/pm.h>
 
 #include "../intc.h"
@@ -131,6 +132,35 @@ void DS2_StopAudio(void)
 
 		_add_pending_send(PENDING_SEND_REQUESTS);
 		DS2_LeaveCriticalSection(section);
+	}
+}
+
+void DS2_SystemSleep(void)
+{
+	enum DS_Screen backlights = DS2_GetScreenBacklights();
+	uint32_t section = DS2_EnterCriticalSection();
+
+	_ds2_ds.requests.sleep = 1;
+
+	_add_pending_send(PENDING_SEND_REQUESTS);
+	DS2_LeaveCriticalSection(section);
+
+	DS2_AwaitNoButtonsIn(DS_BUTTON_LID);
+
+	DS2_SetScreenBacklights(backlights);
+}
+
+void DS2_SystemShutDown(void)
+{
+	uint32_t section = DS2_EnterCriticalSection();
+
+	_ds2_ds.requests.shutdown = 1;
+
+	_add_pending_send(PENDING_SEND_REQUESTS);
+	DS2_LeaveCriticalSection(section);
+
+	while (1) {
+		DS2_AwaitInterrupt();
 	}
 }
 

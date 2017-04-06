@@ -227,7 +227,9 @@ struct __attribute__((packed, aligned (4))) card_reply_requests {
 	uint8_t change_backlight; /* 1 if the DS should modify the screen backlights */
 	uint8_t screen_backlights; /*   backlights to turn on, 1 = bottom, 2 = top */
 	uint8_t reset;         /* 1 to initiate a reset sequence */
-	uint8_t reserved[495];
+	uint8_t sleep;         /* 1 to make the Nintendo DS sleep */
+	uint8_t shutdown;      /* 1 to shut down the Nintendo DS */
+	uint8_t reserved[493];
 };
 
 union card_reply_4 {
