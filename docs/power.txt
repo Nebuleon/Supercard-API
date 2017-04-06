@@ -19,6 +19,20 @@ The CPU and RAM inside the Supercard DSTwo can be underclocked to save power, or
 
 See clock.txt for a discussion of the stability of various clock speeds.
 
+=== Closing the lid (except Nintendo 2DS) ===
+
+When the lid is closed, DS_BUTTON_LID will be set in the bitmasks returned by the input functions (see input.txt). Your application may want to make the Nintendo DS sleep until the lid is opened back up.
+
+To save maximum power, you should first call DS2_LowClockSpeed to underclock the Supercard DSTwo, then call DS2_SystemSleep, then set the clock speed back:
+
+    struct DS_InputState input;
+    /* acquire input here */
+    if (input.buttons & DS_BUTTON_LID) {
+        DS2_LowClockSpeed();
+        DS2_SystemSleep();
+        /* set the clock speed back here */
+    }
+
 === Functions ===
 
 #include <ds2/pm.h>
@@ -56,3 +70,13 @@ int DS2_SetClockSpeed(uint32_t* restrict cpu_hz, uint32_t* restrict mem_hz);
 
     printf("The Supercard picked these\nspeeds (in Hz):\nCPU: %" PRIu32 "\nRAM: %" PRIu32 "\n",
         cpu_speed, mem_speed);
+
+void DS2_SystemSleep(void);
+
+    Requests that the Nintendo DS be put to sleep to save power. The Supercard DSTwo's execution will be suspended; the Nintendo DS will not communicate with the Supercard DSTwo and will run few or no interrupts until then with backlights turned off.
+
+    The function returns when the lid is opened back up.
+
+void DS2_SystemShutDown(void);
+
+    Requests that the Nintendo DS be shut down immediately. Files are not closed. This may lead to loss of data.

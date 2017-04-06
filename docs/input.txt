@@ -69,13 +69,7 @@ If DS_BUTTON_TOUCH is pressed, two values become meaningful in the DS_InputState
 
 === Dealing with the lid ===
 
-If DS_BUTTON_LID is pressed, that means the user closed the Nintendo DS. The application can take some actions to reduce power usage on the Supercard DSTwo here, including:
-
-- turn off the screens' backlights, possibly after clearing the screens' contents;
-- suspend audio playback and video output;
-- call DS2_AwaitNoButtonsIn(DS_BUTTON_LID).
-
-This does not apply to the Nintendo 2DS.
+If DS_BUTTON_LID is pressed, that means the user closed the Nintendo DS. The application can take some actions to reduce power usage on the Supercard DSTwo here. See "Closing the lid" in power.txt.
 
 === Functions ===
 
