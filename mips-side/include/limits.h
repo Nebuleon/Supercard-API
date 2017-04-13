@@ -124,5 +124,6 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #endif
 
 #define PATH_MAX 4096
+#define NAME_MAX 768  /* sync with libfat/directory.h: MAX_FILENAME_LENGTH */
 
 #endif /* _LIMITS_H___ */
