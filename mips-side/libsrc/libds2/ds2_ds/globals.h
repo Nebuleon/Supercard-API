@@ -195,7 +195,7 @@ struct __attribute__((aligned(32))) _ds2_ds {
 	 * DS. Overflows every 414.252 days.
 	 * volatile because it can be modified by the card command interrupt handler,
 	 * and it's then tested for inequality in a loop to await the next VBlank. */
-	uint32_t vblank_count;
+	volatile uint32_t vblank_count;
 
 	/* Status of the link between the DS and the Supercard.
 	 * volatile because it can be modified by the card command interrupt handler. */
