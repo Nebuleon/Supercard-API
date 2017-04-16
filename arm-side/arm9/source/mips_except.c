@@ -646,31 +646,57 @@ static bool disassemble_mips32_regimm(uint32_t op, uint32_t loc, char* shrt, cha
  */
 static bool disassemble_mips32_cop0(uint32_t op, uint32_t loc, char* shrt, char* canon)
 {
-	uint32_t op_min = op & 0x3F;
-	switch (op_min) {
-	case 0x18:  // ERET
-		if ((op >> 25) & 1) {
+	if (op & UINT32_C(0x02000000)) { /* Bit 25, CO, is set */
+		uint32_t op_min = op & 0x3F;
+		switch (op_min) {
+		case 0x01:  // TLBR
+			strcpy(canon, "tlbr");
+			strcpy(shrt, canon);
+			return true;
+		case 0x02:  // TLBWI
+			strcpy(canon, "tlbwi");
+			strcpy(shrt, canon);
+			return true;
+		case 0x06:  // TLBWR
+			strcpy(canon, "tlbwr");
+			strcpy(shrt, canon);
+			return true;
+		case 0x08:  // TLBP
+			strcpy(canon, "tlbp");
+			strcpy(shrt, canon);
+			return true;
+		case 0x18:  // ERET
 			strcpy(canon, "eret");
 			strcpy(shrt, canon);
 			return true;
-		}
-		else return false;
-	case 0x1F:  // DERET
-		if ((op >> 25) & 1) {
+		case 0x1F:  // DERET
 			strcpy(canon, "deret");
 			strcpy(shrt, canon);
 			return true;
-		}
-		else return false;
-	case 0x20:  // WAIT
-		if ((op >> 25) & 1) {
+		case 0x20:  // WAIT
 			strcpy(canon, "wait");
 			strcpy(shrt, canon);
 			return true;
+		default:
+			return false;
 		}
-		else return false;
-	default:
-		return false;
+	} else {
+		uint32_t cop0_min = (op >> 21) & 0x1F;
+		uint32_t t = (op >> 16) & 0x1F,
+			d = (op >> 11) & 0x1F,
+			sel = op & 0x7;
+		switch (cop0_min) {
+		case 0x00:  // MFC0 rt, rd, sel
+			sprintf(canon, "mfc0 $%" PRIu32 ", $%" PRIu32 ", %" PRIu32, t, d, sel);
+			strcpy(shrt, canon);
+			return true;
+		case 0x04:  // MTC0 rt, rd, sel
+			sprintf(canon, "mtc0 $%" PRIu32 ", $%" PRIu32 ", %" PRIu32, t, d, sel);
+			strcpy(shrt, canon);
+			return true;
+		default:
+			return false;
+		}
 	}
 }
 
@@ -732,7 +758,7 @@ static bool disassemble_mips32_i(uint32_t op, uint32_t loc, char* shrt, char* ca
 		return true;
 	case 0x06:  // BLEZ RS, PC+IMM+4
 		sprintf(canon, "blez $%" PRIu32 ", 0x%08" PRIX32, s, rel_jump(loc, (int16_t) imm));
-		if (s == t)  // Effectively an unconditional immediate jump
+		if (s == 0)  // Effectively an unconditional immediate jump
 			sprintf(shrt, "b 0x%08" PRIX32, rel_jump(loc, (int16_t) imm));
 		else
 			strcpy(shrt, canon);
@@ -740,7 +766,7 @@ static bool disassemble_mips32_i(uint32_t op, uint32_t loc, char* shrt, char* ca
 	case 0x07:  // BGTZ RS, PC+IMM+4
 		sprintf(canon, "bgtz $%" PRIu32 ", 0x%08" PRIX32, s, rel_jump(loc, (int16_t) imm));
 #if defined UNLIKELY_SHORT_FORMS
-		if (s == t)  // Effectively a nop with a branch delay slot
+		if (s == 0)  // Effectively a nop with a branch delay slot
 			strcpy(shrt, "nop");
 		else
 #endif
@@ -862,7 +888,7 @@ static bool disassemble_mips32_i(uint32_t op, uint32_t loc, char* shrt, char* ca
 	case 0x16:  // BLEZL RS, PC+IMM+4
 		sprintf(canon, "blezl $%" PRIu32 ", 0x%08" PRIX32, s, rel_jump(loc, (int16_t) imm));
 #if defined UNLIKELY_SHORT_FORMS
-		if (s == t)  // Effectively an unconditional immediate jump
+		if (s == 0)  // Effectively an unconditional immediate jump
 			sprintf(shrt, "b 0x%08" PRIX32, rel_jump(loc, (int16_t) imm));
 		else
 #endif
@@ -992,7 +1018,7 @@ static bool disassemble_mips32_special2(uint32_t op, uint32_t loc, char* shrt, c
 #endif
 			strcpy(shrt, canon);
 		return true;
-	case 0x30:  // CLZ RD, RS
+	case 0x20:  // CLZ RD, RS
 		sprintf(canon, "clz $%" PRIu32 ", $%" PRIu32, d, s);
 #if defined UNLIKELY_SHORT_FORMS
 		if (d == 0)  // Effectively a nop
@@ -1001,7 +1027,7 @@ static bool disassemble_mips32_special2(uint32_t op, uint32_t loc, char* shrt, c
 #endif
 			strcpy(shrt, canon);
 		return true;
-	case 0x31:  // CLO RD, RS
+	case 0x21:  // CLO RD, RS
 		sprintf(canon, "clo $%" PRIu32 ", $%" PRIu32, d, s);
 #if defined UNLIKELY_SHORT_FORMS
 		if (d == 0)  // Effectively a nop
