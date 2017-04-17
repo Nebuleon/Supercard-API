@@ -11,7 +11,7 @@ MEMORY
 
 SECTIONS
 {
-	/**** Code and read-only data ****/
+	/**** Code ****/
 	.text 0x80002000 :
 	{
 		__text_start = ABSOLUTE(.); /* Start of code */
@@ -22,12 +22,15 @@ SECTIONS
 		*(__libc*)
 
 		__text_end = ABSOLUTE(.); /* End of code */
+	} > ram
 
-		. = ALIGN(8);
+	/**** Read-only data ****/
+
+	.rodata BLOCK(8) :
+	{
 		__rodata_start = ABSOLUTE(.); /* Start of read-only data */
 
 		*(.rodata*)
-		. = ALIGN(8);
 
 		__rodata_end = ABSOLUTE(.);
 	} > ram
