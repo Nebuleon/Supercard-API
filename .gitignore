@@ -4,3 +4,5 @@
 arm-side/arm-side.nds
 arm-side/arm7/build/
 arm-side/arm9/build/
+mips-side/toolsrc/packer/packer
+mips-side/toolsrc/unpacker/unpacker.dat
