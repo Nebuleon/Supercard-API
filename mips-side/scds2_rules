@@ -25,8 +25,14 @@ ASFLAGS        += -I$(SCDS2_TOOLS)/include -G 0 -DSCDS2
 # Linker flags
 LDFLAGS        += -specs=$(SCDS2_TOOLS)/scds2.specs -L$(SCDS2_TOOLS)/lib -lgcc
 
+%.plg: %.pak
+	$(SCDS2_TOOLS)/tools/makeplug $< $@
+
 %.plg: %.dat
 	$(SCDS2_TOOLS)/tools/makeplug $< $@
+
+%.pak: %.dat
+	$(SCDS2_TOOLS)/tools/packer $< $@
 
 %.dat: %.elf
 	$(OBJCOPY) -x -O binary $< $@
