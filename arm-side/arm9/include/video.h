@@ -38,7 +38,7 @@ extern uint8_t video_main_current;
 
 /* Sets the currently-displayed Main Screen buffer.
  * In:
- *   buffer: 0 or 1.
+ *   buffer: 0 to 2.
  */
 extern void set_main_buffer(uint8_t buffer);
 
