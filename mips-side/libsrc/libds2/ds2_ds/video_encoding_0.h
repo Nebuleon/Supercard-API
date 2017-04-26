@@ -29,7 +29,8 @@
  * RGB 555 with the upper bit set on each 16-bit quantity.
  *
  * In:
- *   src: A pointer to the first pixel to be sent.
+ *   src: A pointer to the first pixel to be sent. This is guaranteed to be
+ *     aligned to 4 bytes.
  *   engine: The Nintendo DS engine to which the pixels are destined.
  *     This is used to get the proper pixel format (BGR 555 or RGB 555) and
  *     sent in the header.
@@ -39,6 +40,7 @@
  *     which the first pixel is destined. Sent in the header.
  *   pixel_count: The number of valid pixels at and after *src. Some of these
  *     pixels are used for the reply, and the number is sent in the header.
+ *     This is guaranteed to be a multiple of 2.
  * Returns:
  *   The number of pixels sent in the reply.
  */

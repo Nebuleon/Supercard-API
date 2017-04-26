@@ -343,6 +343,12 @@ void process_send_queue()
 
 		if (pixel_offset >= SCREEN_WIDTH * SCREEN_HEIGHT) {
 			fatal_link_error("Supercard sent video data that\nexceeds screen boundaries");
+		} else if (pixel_offset & 1) {
+			/* 4-byte alignment is required by all video encodings to access
+			 * VRAM efficiently. Video encoding 0, in particular, absolutely
+			 * needs this alignment, because it uses card_read_data to write
+			 * 32-bit quantities directly into VRAM. */
+			fatal_link_error("Supercard sent video data that\ndoes not start on an even pixel");
 		} else if (!is_main && buffer != 0) {
 			fatal_link_error("Supercard attempted to use\nmultiple buffering on the\nSub Screen");
 		} else if (is_main && buffer > 2) {

@@ -27,8 +27,8 @@
 void video_encoding_0(uint32_t header_1, uint16_t* dest, size_t max_pixels)
 {
 	size_t bytes = (header_1 & DATA_BYTE_COUNT_MASK) >> DATA_BYTE_COUNT_BIT;
-	if (bytes & 1) {
-		fatal_link_error("Video encoding 0 data is not\nan even number of bytes\n\nSize received: %zu", bytes);
+	if (bytes & 3) {
+		fatal_link_error("Video encoding 0 data is not\na multiple of 4 bytes\n\nSize received: %zu", bytes);
 	}
 	if (bytes > max_pixels * sizeof(uint16_t)) {
 		fatal_link_error("Video encoding 0 data is not\nfully inside the screen\n\n%zu extra uncompressed bytes", bytes - max_pixels * sizeof(uint16_t));
@@ -39,15 +39,7 @@ void video_encoding_0(uint32_t header_1, uint16_t* dest, size_t max_pixels)
 	 * accessed. Otherwise, the DMA hardware MAY ignore a word that was queued
 	 * already (REG_ROMCTRL & CARD_DATA_READY), and read only the next one! */
 
-	card_read_data(bytes & ~3, dest, false); /* Read directly into VRAM */
-
-	if (bytes & 2) {
-		union card_reply_4 last_word;
-
-		last_word.word = card_read_word(false);
-		dest += (bytes & ~3) / sizeof(uint16_t);
-		*dest = last_word.halfwords[0];
-	}
+	card_read_data(bytes, dest, false); /* Read directly into VRAM */
 
 	card_ignore_reply();
 }
