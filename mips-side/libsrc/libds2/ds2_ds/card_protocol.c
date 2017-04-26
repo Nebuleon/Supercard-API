@@ -232,7 +232,20 @@ void _main_protocol(const union card_command* command)
 				case PENDING_SEND_REQUESTS:  _send_requests();  break;
 				case PENDING_SEND_AUDIO:     _audio_dequeue();  break;
 				case PENDING_SEND_TEXT:      _text_dequeue();   break;
-				case PENDING_SEND_VIDEO:     _video_dequeue();  break;
+				case PENDING_SEND_VIDEO:
+					/* Send the prepared packet */
+					_send_reply_4(_ds2_ds.vid_header_1);
+					_send_reply_4(_ds2_ds.vid_header_2);
+					if (_ds2_ds.vid_fixup) {
+						_send_video_reply(_ds2_ds.vid_next_ptr, 504,
+							(_ds2_ds.vid_header_2 & VIDEO_ENGINE_MASK) >> VIDEO_ENGINE_BIT);
+					} else {
+						_send_reply(_ds2_ds.vid_next_ptr, 504);
+					}
+
+					/* Prepare the next one, if any */
+					_video_dequeue();
+					break;
 				case PENDING_SEND_END:       _send_end();       break;
 			}
 			break;

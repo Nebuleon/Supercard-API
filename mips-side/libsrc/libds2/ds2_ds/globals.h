@@ -191,6 +191,30 @@ struct __attribute__((aligned(32))) _ds2_ds {
 
 	size_t vid_queue_count;
 
+	/* A pointer to the video data to be sent by the interrupt handler during
+	 * the next time it runs. It may be a pointer to 252 pixels from a screen
+	 * buffer, if the 252 pixels are to be sent directly and they aren't last
+	 * in the screen (because, after the last pixels are dequeued, the screen
+	 * is no longer considered busy and the application could write into them
+	 * right away), or it may be a pointer to vid_next_data. The pointee must
+	 * be aligned to 4 bytes. */
+	const void* vid_next_ptr;
+
+	/* The first header word to be sent by the interrupt handler before video
+	 * data at vid_next_ptr, containing the data kind, encoding and number of
+	 * bytes in the packet. */
+	uint32_t vid_header_1;
+
+	/* The second header word to be sent by the interrupt handler, containing
+	 * the engine, buffer, pixel offset and end of frame flag. Some encodings
+	 * may add more flags to this header word. */
+	uint32_t vid_header_2;
+
+	/* true if fixing up bit 15 and possibly converting RGB 555 to BGR 555 is
+	 * to be done by the FPGA when the interrupt handler sends the next video
+	 * data; false if software has done this or is sending raw data. */
+	bool vid_fixup;
+
 	/* Number of vertical blanking interrupts (VBlank) encountered by the Nintendo
 	 * DS. Overflows every 414.252 days.
 	 * volatile because it can be modified by the card command interrupt handler,
@@ -219,6 +243,14 @@ struct __attribute__((aligned(32))) _ds2_ds {
 	struct card_reply_requests requests __attribute__((aligned (32)));
 
 	struct card_reply_mips_exception exception __attribute__((aligned (32)));
+
+	/* A copy of the last pixels of a screen (because, after the last pixels
+	 * are dequeued, the screen is no longer considered busy and the
+	 * application* could write into them right away), or data written with a
+	 * custom encoding. Up to 504 bytes may be written here.
+	 * Aligned to 32 bytes so as to affect one fewer cache line than if it were
+	 * not. */
+	union card_reply_512 vid_next_data __attribute__((aligned (32)));
 
 	/* Used when the code needs global memory to send a reply that is constructed
 	 * on-the-fly, because stack memory is undefined after a function exits.

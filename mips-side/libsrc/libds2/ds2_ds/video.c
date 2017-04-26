@@ -106,7 +106,11 @@ static int video_enqueue(enum DS_Engine engine, size_t start_y, size_t end_y, bo
 		if (engine == DS_ENGINE_MAIN)
 			_ds2_ds.vid_last_was_flip = flip;
 
-		_add_pending_send(PENDING_SEND_VIDEO);
+		/* Prepare the first packet for this frame if it's the first entry in
+		 * the send queue */
+		if (_ds2_ds.vid_queue_count == 1)
+			_video_dequeue();
+
 		DS2_LeaveCriticalSection(section);
 	}
 
@@ -117,6 +121,11 @@ void _video_dequeue(void)
 {
 	struct _video_entry* head = &_ds2_ds.vid_queue[0];
 	size_t result;
+
+	if (_ds2_ds.vid_queue_count == 0)
+		return;
+
+	_add_pending_send(PENDING_SEND_VIDEO);
 
 	result = _video_encoding_0(head->src, head->engine, head->buffer, head->pixel_offset, head->pixel_count);
 
@@ -131,10 +140,6 @@ void _video_dequeue(void)
 			_ds2_ds.vid_queue[i - 1] = _ds2_ds.vid_queue[i];
 		}
 		_ds2_ds.vid_queue_count--;
-	}
-
-	if (_ds2_ds.vid_queue_count > 0) {
-		_add_pending_send(PENDING_SEND_VIDEO);
 	}
 }
 

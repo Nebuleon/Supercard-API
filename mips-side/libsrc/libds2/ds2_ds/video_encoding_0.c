@@ -27,27 +27,25 @@
 size_t _video_encoding_0(const uint16_t* src, enum DS_Engine engine, uint_fast8_t buffer, uint_fast16_t pixel_offset, size_t pixel_count)
 {
 	bool end = pixel_count <= 252;
-	uint32_t header_1 = DATA_KIND_VIDEO | DATA_ENCODING(0);
-	uint32_t header_2 = VIDEO_BUFFER(buffer) | VIDEO_PIXEL_OFFSET(pixel_offset)
+	if (!end)
+		pixel_count = 252;
+
+	_ds2_ds.vid_header_1 = DATA_KIND_VIDEO | DATA_ENCODING(0)
+	                     | DATA_BYTE_COUNT(pixel_count * sizeof(uint16_t));
+	_ds2_ds.vid_header_2 = VIDEO_BUFFER(buffer) | VIDEO_PIXEL_OFFSET(pixel_offset)
 	                  | (engine == DS_ENGINE_MAIN ? VIDEO_ENGINE_MAIN : VIDEO_ENGINE_SUB)
 	                  | (end ? VIDEO_END_FRAME : 0);
 
-	if (!end)
-		pixel_count = 252;
-	header_1 |= DATA_BYTE_COUNT(pixel_count * sizeof(uint16_t));
-
-	_send_reply_4(header_1);
-	_send_reply_4(header_2);
-
 	if (!end) {
-		_send_video_reply(src, 504, engine);
+		_ds2_ds.vid_next_ptr = src;
 	} else {
 		/* There may not be 504 valid bytes after the final pixels of the
 		 * screen; the ones that follow may be past the end of RAM, so we
-		 * move them to a location having 504 guaranteed valid bytes. */
-		memcpy(&_ds2_ds.temp, src, pixel_count * sizeof(uint16_t));
-		_send_video_reply(&_ds2_ds.temp, 504, engine);
+		 * move them to vid_next_data. */
+		memcpy(&_ds2_ds.vid_next_data, src, pixel_count * sizeof(uint16_t));
+		_ds2_ds.vid_next_ptr = &_ds2_ds.vid_next_data;
 	}
+	_ds2_ds.vid_fixup = true;
 
 	return pixel_count;
 }
