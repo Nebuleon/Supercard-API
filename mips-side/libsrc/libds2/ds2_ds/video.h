@@ -60,10 +60,10 @@ static inline uint16_t _video_convert_bgr555(uint16_t pixel, enum DS_Engine engi
 	enum DS2_PixelFormat format = _ds2_ds.vid_formats[engine - 1];
 	switch (format) {
 		case DS2_PIXEL_FORMAT_BGR555:
-			return 0x8000 | pixel;
+			return UINT16_C(0x8000) | pixel;
 
 		case DS2_PIXEL_FORMAT_RGB555:
-			return 0x8000
+			return UINT16_C(0x8000)
 			     | ((pixel & UINT16_C(0x7C00)) >> 10)
 			     | ((pixel & UINT16_C(0x001F)) << 10)
 			     |  (pixel & UINT16_C(0x03E0));
