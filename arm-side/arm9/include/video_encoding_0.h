@@ -24,7 +24,7 @@
 
 /*
  * Video encoding 0 is simply uncompressed video, sent by the Supercard as
- * RGB 555 with the upper bit set on each 16-bit quantity by the FPGA.
+ * BGR 555 with the upper bit set on each 16-bit quantity by the FPGA.
  *
  * In:
  *   header_1: The first header word, containing the meaningful byte count.
