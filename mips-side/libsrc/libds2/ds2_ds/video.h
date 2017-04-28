@@ -34,6 +34,18 @@
  * so that a row of pixels is contiguous in memory. */
 extern uint16_t _video_main[MAIN_BUFFER_COUNT][DS_SCREEN_WIDTH * DS_SCREEN_HEIGHT];
 
+/* For each Main Screen buffer, this array contains the palette that was last
+ * computed for the buffer, if it contained 252 unique colors or fewer. */
+extern uint16_t _video_main_palettes[MAIN_BUFFER_COUNT][256];
+
+/* For each Main Screen buffer, this array maps pixels (of the pixel format
+ * used by the Main Screen; see _ds2_ds.vid_formats) to the palette entries
+ * that correspond to them.
+ *
+ * The upper bit of a pixel must be cleared before looking it up. If colors
+ * don't appear in the buffer, their palette entries are left undefined. */
+extern uint8_t _video_main_rev_palettes[MAIN_BUFFER_COUNT][0x8000];
+
 /* The buffer for the Sub Screen to be sent to the Nintendo DS.
  *
  * The Sub Screen doesn't support page flipping, so video_sub[n] has the

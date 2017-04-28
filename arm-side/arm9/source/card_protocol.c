@@ -34,6 +34,7 @@
 #include "text_encoding_0.h"
 #include "video.h"
 #include "video_encoding_0.h"
+#include "video_encoding_1.h"
 
 /* (From GBATEK)
 40001A4h - NDS7/NDS9 - ROMCTRL - Gamecard Bus ROMCTRL (R/W)
@@ -54,7 +55,7 @@
 */
 #define ROMCTRL_USUAL_FLAGS 0xA0180010
 
-#define ARM_VIDEO_ENCODINGS 1
+#define ARM_VIDEO_ENCODINGS 2
 #define ARM_AUDIO_ENCODINGS 1
 
 #define VBLANK_LAG_MAX 5
@@ -366,6 +367,18 @@ void process_send_queue()
 				set_main_buffer_palette(buffer, false);
 			dest = (is_main ? video_main[buffer] : video_sub) + pixel_offset;
 			video_encoding_0(header, dest, max_pixels);
+			break;
+		case 1:
+			if (!is_main) {
+				fatal_link_error("Supercard attempted to use\nvideo encoding 1 on the Sub\nScreen");
+			}
+
+			set_main_buffer_palette(buffer, true);
+			dest = (uint16_t*) ((uint8_t*) video_main[buffer] + pixel_offset);
+			if (header_2 & VIDEO_SET_PALETTE)
+				set_palette(buffer);
+			else
+				video_encoding_1(header, dest, max_pixels);
 			break;
 		default:
 			fatal_link_error("Supercard sent video data using\nunsupported encoding %" PRIu8, encoding);

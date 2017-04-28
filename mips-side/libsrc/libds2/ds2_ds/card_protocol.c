@@ -31,7 +31,7 @@
 #include "video.h"
 #include "../dma.h"
 
-#define MIPS_VIDEO_ENCODINGS 1
+#define MIPS_VIDEO_ENCODINGS 2
 #define MIPS_AUDIO_ENCODINGS 1
 
 void _add_pending_send(uint32_t mask)

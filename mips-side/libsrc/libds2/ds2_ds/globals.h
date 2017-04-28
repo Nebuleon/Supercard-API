@@ -35,6 +35,8 @@ struct _video_entry {
 	uint16_t pixel_offset;
 	uint16_t pixel_count;
 	uint8_t buffer;
+	bool use_palette;
+	bool palette_sent;
 	enum DS_Engine engine;
 };
 
@@ -176,6 +178,12 @@ struct __attribute__((aligned(32))) _ds2_ds {
 	 * match '_ds2_ds.vid_main_displayed' (previous operation was an update) or if it
 	 * should NOT match it (previous operation was a flip). */
 	bool vid_last_was_flip;
+
+	/* For each Main Screen buffer, true if the last frame sent to the DS was
+	 * a palette frame; false if it was a 16-bit frame. A palette frame can't
+	 * be updated partially, because the partial update's palette entries may
+	 * not apply to the pixels that are to be left alone. */
+	bool vid_main_was_palette[MAIN_BUFFER_COUNT];
 
 	/* Contains an entry for each Main Screen buffer stating whether it's being
 	 * sent.

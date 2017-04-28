@@ -190,6 +190,8 @@ struct __attribute__((packed, aligned (4))) card_reply_hello {
 /* Must the Main Screen buffer be flipped to the buffer in VIDEO_BUFFER_MASK
  * after this bit of video in order to ensure that the new data is shown? */
 #define VIDEO_END_FRAME    (1 << 12)
+/* Used by certain video encodings that use palettes. */
+#define VIDEO_SET_PALETTE  (1 << 9)
 
 struct __attribute__((packed, aligned (4))) card_reply_mips_assert {
 	uint32_t line;

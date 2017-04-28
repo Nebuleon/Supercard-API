@@ -27,15 +27,23 @@
 #include "video.h"
 #include "globals.h"
 #include "video_encoding_0.h"
+#include "video_encoding_1.h"
 
 uint16_t _video_main[MAIN_BUFFER_COUNT][DS_SCREEN_WIDTH * DS_SCREEN_HEIGHT] __attribute__((aligned (32)));
 
+uint16_t _video_main_palettes[MAIN_BUFFER_COUNT][256] __attribute__((aligned (32)));
+
+uint8_t _video_main_rev_palettes[MAIN_BUFFER_COUNT][0x8000] __attribute__((aligned (32)));
+
 uint16_t _video_sub[DS_SCREEN_WIDTH * DS_SCREEN_HEIGHT] __attribute__((aligned (32)));
+
+extern size_t _make_palette(uint_fast8_t buffer);
 
 static int video_enqueue(enum DS_Engine engine, size_t start_y, size_t end_y, bool flip)
 {
 	volatile uint8_t* busy;
 	uint16_t* src;
+	size_t palette_count = 0;
 
 	if (start_y == end_y)
 		return 0;
@@ -87,6 +95,21 @@ static int video_enqueue(enum DS_Engine engine, size_t start_y, size_t end_y, bo
 		src = _video_sub;
 	}
 
+	if (_ds2_ds.vid_compress && _ds2_ds.vid_encodings_supported >= 2
+	 && engine == DS_ENGINE_MAIN && flip && _ds2_ds.vid_last_was_flip) {
+		palette_count = _make_palette(_ds2_ds.vid_main_current);
+	}
+
+	if (_ds2_ds.vid_main_was_palette[_ds2_ds.vid_main_current] || palette_count != 0) {
+		/* When transitioning from a palette frame to a 16-bit frame or vice
+		 * versa, or when sending a new palette frame, force the full screen
+		 * to be updated. */
+		start_y = 0;
+		end_y = DS_SCREEN_HEIGHT;
+	}
+
+	_ds2_ds.vid_main_was_palette[_ds2_ds.vid_main_current] = palette_count != 0;
+
 	{
 		uint32_t section = DS2_EnterCriticalSection();
 		struct _video_entry* tail = &_ds2_ds.vid_queue[_ds2_ds.vid_queue_count];
@@ -97,6 +120,13 @@ static int video_enqueue(enum DS_Engine engine, size_t start_y, size_t end_y, bo
 		tail->pixel_offset = DS_SCREEN_WIDTH * start_y;
 		tail->pixel_count = DS_SCREEN_WIDTH * (end_y - start_y);
 		tail->busy = busy;
+
+		if (palette_count != 0) {
+			tail->use_palette = true;
+			tail->palette_sent = false;
+		} else {
+			tail->use_palette = false;
+		}
 
 		_ds2_ds.vid_queue_count++;
 		*busy = 1;
@@ -127,7 +157,17 @@ void _video_dequeue(void)
 
 	_add_pending_send(PENDING_SEND_VIDEO);
 
-	result = _video_encoding_0(head->src, head->engine, head->buffer, head->pixel_offset, head->pixel_count);
+	if (head->use_palette) {
+		if (!head->palette_sent) {
+			_send_palette(head->buffer);
+			head->palette_sent = true;
+			result = 0;
+		} else {
+			result = _video_encoding_1(head->src, head->buffer, head->pixel_offset, head->pixel_count);
+		}
+	} else {
+		result = _video_encoding_0(head->src, head->engine, head->buffer, head->pixel_offset, head->pixel_count);
+	}
 
 	head->src += result;
 	head->pixel_offset += result;

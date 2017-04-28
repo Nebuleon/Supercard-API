@@ -117,6 +117,7 @@ static void init_variables(void)
 	_ds2_ds.vid_last_was_flip = false;
 	for (i = 0; i < MAIN_BUFFER_COUNT; i++) {
 		_ds2_ds.vid_main_busy[i] = 0;
+		_ds2_ds.vid_main_was_palette[i] = false;
 	}
 	_ds2_ds.vid_sub_busy = 0;
 	_ds2_ds.vid_queue_count = 0;
