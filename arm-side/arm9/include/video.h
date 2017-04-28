@@ -36,11 +36,26 @@ extern DTCM_BSS bool video_sub_graphics;
 /* Index of the Main Screen buffer last set by set_main_buffer. */
 extern uint8_t video_main_current;
 
+/* Indexing this array yields the palette to be used to display a given Main
+ * Screen buffer. Elements are meaningful only if set_main_buffer_palette is
+ * first called for the buffer with a value of true. */
+uint16_t video_main_palette[3][256];
+
 /* Sets the currently-displayed Main Screen buffer.
  * In:
  *   buffer: 0 to 2.
  */
 extern void set_main_buffer(uint8_t buffer);
+
+/* Sets whether the given Main Screen buffer is to use a palette. The palette
+ * is stored in video_main_palette[buffer] and is copied when flipping to the
+ * buffer.
+ * In:
+ *   buffer: 0 to 2.
+ *   value: true if the given buffer is to use a palette; false if it's to be
+ *     a 16-bit background.
+ */
+extern void set_main_buffer_palette(uint8_t buffer, bool value);
 
 /* Sets both screens to be displaying graphics. */
 extern void video_init(void);

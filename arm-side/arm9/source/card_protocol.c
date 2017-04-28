@@ -358,11 +358,15 @@ void process_send_queue()
 		if (!is_main)
 			set_sub_graphics();
 
-		dest = (is_main ? video_main[buffer] : video_sub) + pixel_offset;
 		max_pixels = SCREEN_WIDTH * SCREEN_HEIGHT - pixel_offset;
 
 		switch (encoding) {
-		case 0:   video_encoding_0(header, dest, max_pixels); break;
+		case 0:
+			if (is_main)
+				set_main_buffer_palette(buffer, false);
+			dest = (is_main ? video_main[buffer] : video_sub) + pixel_offset;
+			video_encoding_0(header, dest, max_pixels);
+			break;
 		default:
 			fatal_link_error("Supercard sent video data using\nunsupported encoding %" PRIu8, encoding);
 			break;

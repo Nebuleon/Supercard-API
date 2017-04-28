@@ -32,6 +32,13 @@ DTCM_BSS bool video_sub_graphics;
 
 uint8_t video_main_current;
 
+/* For each element in this array:
+ * true if the given Main Screen buffer is using a palette; false if it's a
+ * 16-bit bitmap background. */
+static DTCM_BSS bool video_main_use_palette[3];
+
+uint16_t video_main_palette[3][256];
+
 /* Contains the index of the Main Screen buffer for which data was last sent
  * by the Supercard. Tracked separately from video_main_current to allow for
  * skipping flips for two frames sent for the same buffer, even if the first
@@ -86,23 +93,96 @@ u32 vramDefault()  /* Overrides weak vramDefault in libnds */
 	return 0;
 }
 
+static void copy_palette(uint8_t buffer)
+{
+	size_t i;
+	for (i = 0; i < 256; i++)
+		BG_PALETTE[i] = video_main_palette[buffer][i];
+}
+
 void set_main_buffer(uint8_t buffer)
 {
 	/* MAIN can have three backgrounds, because it can manage up to 512 KiB
-	 * of memory. Use them for page-swapping. */
+	 * of memory. Use them for page-swapping.
+	 * To display buffers that use palettes, since REG_DISPCNT cannot be used
+	 * in bitmap modes to add 64 KiB offsets to the VRAM base, we remap banks
+	 * to 0x06000000, making sure that two banks are never mapped there at the
+	 * same time. */
 	switch (buffer) {
 	case 0:
 	default:
-		videoSetMode(MODE_FB0);
+		if (video_main_use_palette[0]) {
+			if (video_main_use_palette[1])
+				vramSetBankB(VRAM_B_MAIN_BG_0x06040000);
+			if (video_main_use_palette[2])
+				vramSetBankD(VRAM_D_MAIN_BG_0x06060000);
+			vramSetBankA(VRAM_A_MAIN_BG_0x06000000);
+			videoSetMode(MODE_5_2D | DISPLAY_BG2_ACTIVE | DISPLAY_SCREEN_BASE(0));
+			copy_palette(0);
+		} else
+			videoSetMode(MODE_FB0);
 		break;
 	case 1:
-		videoSetMode(MODE_FB1);
+		if (video_main_use_palette[1]) {
+			if (video_main_use_palette[0])
+				vramSetBankA(VRAM_B_MAIN_BG_0x06020000);
+			if (video_main_use_palette[2])
+				vramSetBankD(VRAM_D_MAIN_BG_0x06060000);
+			vramSetBankB(VRAM_B_MAIN_BG_0x06000000);
+			videoSetMode(MODE_5_2D | DISPLAY_BG2_ACTIVE | DISPLAY_SCREEN_BASE(0));
+			copy_palette(1);
+		} else
+			videoSetMode(MODE_FB1);
 		break;
 	case 2:
-		videoSetMode(MODE_FB3);
+		if (video_main_use_palette[2]) {
+			if (video_main_use_palette[0])
+				vramSetBankA(VRAM_B_MAIN_BG_0x06020000);
+			if (video_main_use_palette[1])
+				vramSetBankB(VRAM_B_MAIN_BG_0x06040000);
+			vramSetBankD(VRAM_B_MAIN_BG_0x06000000);
+			videoSetMode(MODE_5_2D | DISPLAY_BG2_ACTIVE | DISPLAY_SCREEN_BASE(0));
+			copy_palette(2);
+		} else
+			videoSetMode(MODE_FB3);
 		break;
 	}
 	video_main_current = buffer;
+}
+
+void set_main_buffer_palette(uint8_t buffer, bool value)
+{
+	switch (buffer) {
+	case 0:
+	default:
+		if (value) {
+			vramSetBankA(VRAM_A_MAIN_BG_0x06020000);
+			video_main[0] = (uint16_t*) 0x06020000;
+		} else {
+			vramSetBankA(VRAM_A_LCD);
+			video_main[0] = VRAM_A;
+		}
+		break;
+	case 1:
+		if (value) {
+			vramSetBankB(VRAM_B_MAIN_BG_0x06040000);
+			video_main[1] = (uint16_t*) 0x06040000;
+		} else {
+			vramSetBankB(VRAM_B_LCD);
+			video_main[1] = VRAM_B;
+		}
+		break;
+	case 2:
+		if (value) {
+			vramSetBankD(VRAM_D_MAIN_BG_0x06060000);
+			video_main[2] = (uint16_t*) 0x06060000;
+		} else {
+			vramSetBankD(VRAM_D_LCD);
+			video_main[2] = VRAM_D;
+		}
+		break;
+	}
+	video_main_use_palette[buffer] = value;
 }
 
 void apply_pending_flip()
@@ -152,14 +232,11 @@ void video_init()
 {
 	/* Set up VRAM banks A, B and D for Main Screen buffers FB0, FB1 and FB3
 	 * and clear them to black. */
-	vramSetBankA(VRAM_A_LCD);
-	video_main[0] = VRAM_A;
+	set_main_buffer_palette(0, false);
 	dmaFillWords(0x80008000, video_main[0], SCREEN_WIDTH * SCREEN_HEIGHT * sizeof(u16));
-	vramSetBankB(VRAM_B_LCD);
-	video_main[1] = VRAM_B;
+	set_main_buffer_palette(1, false);
 	dmaFillWords(0x80008000, video_main[1], SCREEN_WIDTH * SCREEN_HEIGHT * sizeof(u16));
-	vramSetBankD(VRAM_D_LCD);
-	video_main[2] = VRAM_D;
+	set_main_buffer_palette(2, false);
 	dmaFillWords(0x80008000, video_main[2], SCREEN_WIDTH * SCREEN_HEIGHT * sizeof(u16));
 
 	/* Start displaying the first one straight away. */
@@ -182,6 +259,18 @@ void video_init()
 	REG_BG2PC_SUB = 0;  /* No rotation */
 	REG_BG2Y_SUB = 0;  /* Rotation reference Y coordinate */
 	REG_BG2X_SUB = 0;  /* Rotation reference X coordinate */
+
+	/* When a MAIN background is shown as an indexed color bitmap, it becomes
+	 * like a 256x256 (65536-byte) extended rotation bitmap background, using
+	 * no rotation or scaling. Any buffer will be mapped to background 2, and
+	 * then the bitmap base in the video mode will need to be adjusted. */
+	REG_BG2CNT = BG_BMP8_256x256 | BG_MAP_BASE(0) | BG_PRIORITY_1;
+	REG_BG2PA = 1 << 8;  /* Identity scaling */
+	REG_BG2PD = 1 << 8;  /* Identity scaling */
+	REG_BG2PB = 0;  /* No rotation */
+	REG_BG2PC = 0;  /* No rotation */
+	REG_BG2Y = 0;  /* Rotation reference Y coordinate */
+	REG_BG2X = 0;  /* Rotation reference X coordinate */
 
 	/* Initialise the console at sub_text. Bank H must be mapped at its proper
 	 * location for the graphics to be loaded there. */
