@@ -148,6 +148,11 @@ void _video_displayed(uint_fast8_t index)
 	_ds2_ds.vid_main_displayed = index;
 }
 
+void DS2_UseVideoCompression(bool compress)
+{
+	_ds2_ds.vid_compress = compress;
+}
+
 int DS2_UpdateScreen(enum DS_Engine engine)
 {
 	return video_enqueue(engine, 0, DS_SCREEN_HEIGHT, false);

@@ -107,6 +107,7 @@ static void init_variables(void)
 
 	_ds2_ds.txt_size = 0;
 
+	_ds2_ds.vid_compress = false;
 	_ds2_ds.vid_formats[0] = DS2_PIXEL_FORMAT_BGR555;
 	_ds2_ds.vid_formats[1] = DS2_PIXEL_FORMAT_BGR555;
 	_ds2_ds.vid_main_displayed = 0;

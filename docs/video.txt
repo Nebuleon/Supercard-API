@@ -152,6 +152,18 @@ void DS2_AwaitVBlank(void);
 
     Suspends execution (see power.txt) until the next vertical blanking period starts on the Nintendo DS.
 
+void DS2_UseVideoCompression(bool compress);
+
+    Requests the use or avoidance of compression when sending screens to the Nintendo DS. This is a trade-off between:
+
+    a) sending screens faster (and with less latency) if compression succeeds, but wasting processing if compression is tried and ends up failing;
+
+    b) sending screens at a predictable, but lower, speed.
+
+    When a Supercard DSTwo application starts, video compression is disabled.
+
+    See mips-side/libsrc/libds2/ds2_ds/video.c to know exactly what kinds of compression are implemented in the communication library.
+
 #include <stdio.h>
 
 int printf(const char* restrict format, ...);

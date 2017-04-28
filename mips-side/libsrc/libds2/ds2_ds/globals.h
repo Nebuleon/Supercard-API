@@ -145,6 +145,10 @@ struct __attribute__((aligned(32))) _ds2_ds {
 	 * be submitted. */
 	volatile size_t txt_size;
 
+	/* true if compression may be used on video data; false if BGR 555 pixels
+	 * without compression are the only allowed format. */
+	bool vid_compress;
+
 	/* Pixel formats for each engine. Indexed by 'enum DS2_Engine' - 1. */
 	enum DS2_PixelFormat vid_formats[2];
 

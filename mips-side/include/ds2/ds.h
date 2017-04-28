@@ -130,6 +130,22 @@ struct __attribute__((packed)) DS_InputState
 /* - - - END SHARED PART - - - */
 
 #if !defined __ASSEMBLY__
+/*
+ * Requests the use or avoidance of compression when sending video data of any
+ * kind to the Nintendo DS.
+ *
+ * Depending on the compression used, it may apply during the next frame only,
+ * or it may apply during the next packet.
+ *
+ * In:
+ *   compress:
+ *   - true to request compression that may reduce the transfer bandwidth (and
+ *     therefore latency) of video data, but may fail and increase processing.
+ *   - false to request avoiding compression. The transfer bandwidth / latency
+ *     will be higher, but constant. This is the default.
+ */
+extern void DS2_UseVideoCompression(bool compress);
+
 /* Sets the entirety of the current screen of the given Nintendo DS display
  * engine to the given color. Does not update or flip the screen.
  *
