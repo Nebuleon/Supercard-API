@@ -19,8 +19,8 @@ INCLUDES := -I../../include
 
 SOURCE_DIRS := .
 
-CFLAGS   := -Wall -G 0 -O2 -fomit-frame-pointer -ffunction-sections \
-            $(INCLUDES) -DNO_FSEEKO -DHAVE_HIDDEN
+CFLAGS   := -Wall -G 256 -O2 -fomit-frame-pointer -ffunction-sections \
+            $(INCLUDES) -mno-gpopt -DNO_FSEEKO -DHAVE_HIDDEN
 
 CFILES   := $(foreach dir, $(SOURCE_DIRS), $(wildcard $(dir)/*.c))
 

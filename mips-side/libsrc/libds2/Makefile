@@ -19,8 +19,8 @@ INCLUDES := -I../../include -iquote. -Ilibfat/include -iquotelibfat/source
 
 SOURCE_DIRS := . libc ds2_ds libfat/source
 
-CFLAGS   := -Wall -G 0 -O2 -fomit-frame-pointer -ffunction-sections \
-            $(INCLUDES)
+CFLAGS   := -Wall -G 256 -O2 -fomit-frame-pointer -ffunction-sections \
+            $(INCLUDES) -mno-gpopt
 
 # Force the use of the memcpy function inside the standard library itself,
 # to reuse its code in the instruction cache.
@@ -29,7 +29,7 @@ CFLAGS   += -mmemcpy
 # Compile libfat for the DSTwo
 CFLAGS   += -DSCDS2
 
-ASFLAGS  := -G 0 $(INCLUDES)
+ASFLAGS  := -G 256 $(INCLUDES) -mno-gpopt
 
 CFILES   := $(foreach dir, $(SOURCE_DIRS), $(wildcard $(dir)/*.c))
 SFILES   := $(foreach dir, $(SOURCE_DIRS), $(wildcard $(dir)/*.S))

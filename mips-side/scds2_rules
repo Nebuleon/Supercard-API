@@ -17,10 +17,10 @@ export RANLIB  := $(PREFIX)gcc-ranlib
 # Please use += to add to this value in project Makefiles.
 
 # Flags for compiling C code
-CFLAGS         += -I$(SCDS2_TOOLS)/include -G 0 -mno-abicalls -mno-long-calls -DSCDS2
+CFLAGS         += -I$(SCDS2_TOOLS)/include -mno-abicalls -mno-long-calls -DSCDS2
 
 # Flags for assembling assembly code
-ASFLAGS        += -I$(SCDS2_TOOLS)/include -G 0 -DSCDS2
+ASFLAGS        += -I$(SCDS2_TOOLS)/include -DSCDS2
 
 # Linker flags
 LDFLAGS        += -specs=$(SCDS2_TOOLS)/scds2.specs -L$(SCDS2_TOOLS)/lib -lgcc
