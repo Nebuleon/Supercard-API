@@ -76,22 +76,27 @@ void fifo_value_handler(uint32_t value, void* userdata)
 		{
 			reset_hardware();
 
-			/* Copy the loader code to the highest possible address in IWRAM
-			 * (code ending at 0x0380FD00, stacks starting at 0x0380FFFC and
-			 * going down) in order to avoid it getting overwritten by a new
-			 * program in most cases. There are 3 cases here:
+			/* Copy the loader code just before the ARM9's reset code, which
+			 * is at 0x027FFDF4 in EWRAM, with stacks starting at 0x0380FF00
+			 * in IWRAM and going down. Addresses are high to avoid the code
+			 * and stack getting overwritten by most programs.
 			 *
-			 * a) The new program is somewhere in EWRAM (0x02xxxxxx);
-			 * b) The new program is somewhere in IWRAM, ending at or before
-			 *    0x0380FD00 - loader size;
-			 * c) The new program is somewhere in IWRAM, ending after
-			 *    0x0380FD00 - loader size.
+			 * There are 4 cases here:
 			 *
-			 * 'a' and 'b' are perfectly safe, but in case 'c', the loader
-			 * will have to write to the location it occupies and will begin
-			 * randomly executing code that is getting loaded before it has
+			 * a) The new program is somewhere in EWRAM, ending at or before
+			 *    0x027FFDF4 - loader size;
+			 * b) The new program is somewhere in EWRAM, ending after
+			 *    0x027FFDF4 - loader size;
+			 * c) The new program is somewhere in IWRAM, ending at or before
+			 *    0x0380FF00 - loader stack usage;
+			 * d) The new program is somewhere in IWRAM, ending after
+			 *    0x0380FF00 - loader stack usage.
+			 *
+			 * 'a' and 'c' are perfectly safe, but in cases 'b' amd 'd', the
+			 * loader will have to write to an address it occupies and will
+			 * execute any code that is found at that address, before it has
 			 * had a chance to set its entrypoint! This is why we load into
-			 * the highest possible location.
+			 * the highest possible address.
 			 *
 			 * NOTE: The start of the loader MUST be ARM code in order for the
 			 * lowest bit of its starting address to be unset. Fortunately, we
@@ -101,13 +106,8 @@ void fifo_value_handler(uint32_t value, void* userdata)
 			ptrdiff_t loader_size = &arm7_loader_end - &arm7_loader;
 			loader_size = (loader_size + 3) & ~3;
 
-			uint8_t* entrypoint = (uint8_t*) 0x0380FD00 - loader_size;
-			/* HACK: For SOME reason, swiCopy and memmove won't work here.
-			 * Only a manual copy loop will work. Stack size too low? */
-			size_t i;
-			for (i = 0; i < loader_size / 4; i++) {
-				*((uint32_t*) entrypoint + i) = *((uint32_t*) &arm7_loader + i);
-			}
+			uint8_t* entrypoint = (uint8_t*) 0x027FFDF4 - loader_size;
+			memcpy(entrypoint, &arm7_loader, loader_size);
 
 			*(volatile uint8_t**) 0x027FFE34 = entrypoint;
 
