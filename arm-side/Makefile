@@ -22,8 +22,8 @@ export TOPDIR		:=	$(CURDIR)
 all: $(TARGET).nds
 
 #---------------------------------------------------------------------------------
-$(TARGET).nds	:	arm7/$(TARGET).elf arm9/$(TARGET).elf
-	ndstool	-c $(TARGET).nds -7 arm7/$(TARGET).elf -9 arm9/$(TARGET).elf
+$(TARGET).nds	:	arm7/$(TARGET).elf arm9/$(TARGET).arm9
+	ndstool	-c $(TARGET).nds -7 arm7/$(TARGET).elf -9 arm9/$(TARGET).arm9
 
 #---------------------------------------------------------------------------------
 arm7/$(TARGET).elf:
@@ -32,6 +32,8 @@ arm7/$(TARGET).elf:
 #---------------------------------------------------------------------------------
 arm9/$(TARGET).elf:
 	$(MAKE) -C arm9
+
+arm9/$(TARGET).arm9: arm9/$(TARGET).elf
 
 #---------------------------------------------------------------------------------
 clean:
