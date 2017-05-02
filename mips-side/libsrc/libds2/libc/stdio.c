@@ -451,6 +451,16 @@ struct dirent* readdir(DIR* dir)
 		return NULL;
 }
 
+struct dirent* readdir_stat(DIR* dir, struct stat* st)
+{
+	int result = _FAT_dirnext((DIR_ITER*) dir, ((DIR_ITER*) dir)->d->d_name, st);
+
+	if (result == 0)
+		return ((DIR_ITER*) dir)->d;
+	else
+		return NULL;
+}
+
 int remove(const char* file)
 {
 	return _FAT_unlink(file);
