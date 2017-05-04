@@ -73,13 +73,13 @@ int DS2_StartAudio(uint16_t frequency, uint16_t buffer_size, bool is_16bit, bool
 	
 	if (_ds2_ds.snd_status == AUDIO_STATUS_STARTED) {
 		DS2_StopAudio();
-
-		/* Wait until the audio is fully stopped before starting it again. */
-		DS2_StartAwait();
-		while (_ds2_ds.snd_status == AUDIO_STATUS_STOPPING)
-			DS2_AwaitInterrupt();
-		DS2_StopAwait();
 	}
+
+	/* Wait until the audio is fully stopped before starting it again. */
+	DS2_StartAwait();
+	while (_ds2_ds.snd_status == AUDIO_STATUS_STOPPING)
+		DS2_AwaitInterrupt();
+	DS2_StopAwait();
 
 	{
 		uint32_t section = DS2_EnterCriticalSection();
