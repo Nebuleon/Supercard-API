@@ -43,7 +43,7 @@ void process_assert()
 	text[failure.text_len] = '\0';
 
 	consoleDemoInit();
-	printf("- Supercard assertion failure -\n\nFile: %s\nLine: %" PRIu32 "\n\n%s",
+	iprintf("- Supercard assertion failure -\n\nFile: %s\nLine: %" PRIu32 "\n\n%s",
 		file, failure.line, text);
 
 	link_status = LINK_STATUS_ERROR;
