@@ -24,6 +24,7 @@
 #include "audio.h"
 #include "card_protocol.h"
 #include "common_ipc.h"
+#include "video.h"
 
 void process_assert()
 {
@@ -42,7 +43,8 @@ void process_assert()
 	memcpy(text, &failure.data[failure.file_len], failure.text_len);
 	text[failure.text_len] = '\0';
 
-	consoleDemoInit();
+	set_sub_text();
+	consoleClear();
 	iprintf("- Supercard assertion failure -\n\nFile: %s\nLine: %" PRIu32 "\n\n%s",
 		file, failure.line, text);
 

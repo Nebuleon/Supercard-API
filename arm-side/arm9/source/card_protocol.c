@@ -92,7 +92,8 @@ void fatal_link_error(const char* format, ...)
 {
 	va_list ap;
 
-	consoleDemoInit();
+	set_sub_text();
+	consoleClear();
 	iprintf("DS-Supercard link error:\n\n");
 
 	va_start(ap, format);

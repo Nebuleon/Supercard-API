@@ -26,6 +26,7 @@
 
 #include "audio.h"
 #include "card_protocol.h"
+#include "video.h"
 
 /*
  * mips_except.c: Displays information about an exception that was raised on
@@ -1077,7 +1078,8 @@ void process_exception()
 	card_read_data(sizeof(exception), &exception, true);
 	REG_IME = IME_DISABLE;
 
-	consoleDemoInit();
+	set_sub_text();
+	consoleClear();
 	iprintf("    - Supercard exception -\n%02" PRIX32 " %s\nat address %08" PRIX32 "\n",
 	       exception.excode, excode_desc(exception.excode), exception.c0_epc);
 
