@@ -83,13 +83,6 @@ u32 vramDefault()  /* Overrides weak vramDefault in libnds */
 	REG_BG0CNT_SUB = BG_32x32 | BG_TILE_BASE(0) | BG_PRIORITY_1;
 	videoSetModeSub(MODE_0_2D | DISPLAY_BG0_ACTIVE);
 
-	vramSetBankD(VRAM_D_LCD);
-	vramSetBankE(VRAM_E_LCD);
-	vramSetBankF(VRAM_F_LCD);
-	vramSetBankG(VRAM_G_LCD);
-	vramSetBankH(VRAM_H_LCD);
-	vramSetBankI(VRAM_I_LCD);
-
 	return 0;
 }
 
@@ -279,11 +272,7 @@ void video_init()
 		/* map base */ 0 /* * 2 KiB */, /* tile base */ 1 /* * 16 KiB */,
 		/* main: */ false, /* load graphics */ true);
 
-	vramSetBankE(VRAM_E_LCD);
-	vramSetBankF(VRAM_F_LCD);
-	vramSetBankG(VRAM_G_LCD);
 	vramSetBankH(VRAM_H_LCD);
-	vramSetBankI(VRAM_I_LCD);
 
 	set_sub_graphics();
 }
