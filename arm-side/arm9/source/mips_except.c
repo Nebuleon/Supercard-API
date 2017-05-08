@@ -110,14 +110,14 @@ static const char* excode_desc(uint32_t excode)
 	}
 }
 
-static bool disassemble_mips32_special(uint32_t op, uint32_t loc, char* shrt, char* canon);
-static bool disassemble_mips32_regimm(uint32_t op, uint32_t loc, char* shrt, char* canon);
-static bool disassemble_mips32_cop0(uint32_t op, uint32_t loc, char* shrt, char* canon);
-static bool disassemble_mips32_pref(uint32_t op, uint32_t loc, char* shrt, char* canon);
-static bool disassemble_mips32_cache(uint32_t op, uint32_t loc, char* shrt, char* canon);
-static bool disassemble_mips32_i(uint32_t op, uint32_t loc, char* shrt, char* canon);
-static bool disassemble_mips32_special2(uint32_t op, uint32_t loc, char* shrt, char* canon);
-static bool disassemble_mips32_j(uint32_t op, uint32_t loc, char* shrt, char* canon);
+static bool disassemble_mips32_special(uint32_t op, uint32_t loc);
+static bool disassemble_mips32_regimm(uint32_t op, uint32_t loc);
+static bool disassemble_mips32_cop0(uint32_t op, uint32_t loc);
+static bool disassemble_mips32_pref(uint32_t op, uint32_t loc);
+static bool disassemble_mips32_cache(uint32_t op, uint32_t loc);
+static bool disassemble_mips32_i(uint32_t op, uint32_t loc);
+static bool disassemble_mips32_special2(uint32_t op, uint32_t loc);
+static bool disassemble_mips32_j(uint32_t op, uint32_t loc);
 
 static uint32_t rel_jump(uint32_t loc, int16_t rel)
 {
@@ -137,16 +137,16 @@ static uint32_t abs_jump(uint32_t loc, uint32_t imm26)
  * instruction is output in upper-case hexadecimal form between angle brackets
  * ('<', '>') to 'canon', and "?" is output to 'shrt'.
  */
-static void disassemble_mips32(uint32_t op, uint32_t loc, char* shrt, char* canon)
+static void disassemble_mips32(uint32_t op, uint32_t loc)
 {
-	uint32_t op_maj = (op >> 26) & 0x3F;
+	unsigned int op_maj = (op >> 26) & 0x3F;
 	bool valid = false;
 	switch (op_maj) {
 	case 0x00:  // SPECIAL prefix
-		valid = disassemble_mips32_special(op, loc, shrt, canon);
+		valid = disassemble_mips32_special(op, loc);
 		break;
 	case 0x01:  // REGIMM prefix
-		valid = disassemble_mips32_regimm(op, loc, shrt, canon);
+		valid = disassemble_mips32_regimm(op, loc);
 		break;
 	case 0x04:  // I-type
 	case 0x05:
@@ -178,28 +178,27 @@ static void disassemble_mips32(uint32_t op, uint32_t loc, char* shrt, char* cano
 	case 0x2E:
 	case 0x30:
 	case 0x38:
-		valid = disassemble_mips32_i(op, loc, shrt, canon);
+		valid = disassemble_mips32_i(op, loc);
 		break;
 	case 0x02:  // J-type
 	case 0x03:
-		valid = disassemble_mips32_j(op, loc, shrt, canon);
+		valid = disassemble_mips32_j(op, loc);
 		break;
 	case 0x10:  // Coprocessor 0
-		valid = disassemble_mips32_cop0(op, loc, shrt, canon);
+		valid = disassemble_mips32_cop0(op, loc);
 		break;
 	case 0x1C:  // SPECIAL2 prefix
-		valid = disassemble_mips32_special2(op, loc, shrt, canon);
+		valid = disassemble_mips32_special2(op, loc);
 		break;
 	case 0x2F:
-		valid = disassemble_mips32_cache(op, loc, shrt, canon);
+		valid = disassemble_mips32_cache(op, loc);
 		break;
 	case 0x33:
-		valid = disassemble_mips32_pref(op, loc, shrt, canon);
+		valid = disassemble_mips32_pref(op, loc);
 		break;
 	}
 	if (!valid) {
-		siprintf(canon, "<%08" PRIX32 ">", op);
-		strcpy(shrt, "?");
+		iprintf("?       <%08" PRIX32 ">", op);
 	}
 }
 
@@ -208,340 +207,303 @@ static void disassemble_mips32(uint32_t op, uint32_t loc, char* shrt, char* cano
  * Returns true and fills both buffers if the instruction is defined.
  * Returns false if the instruction is undefined.
  */
-static bool disassemble_mips32_special(uint32_t op, uint32_t loc, char* shrt, char* canon)
+static bool disassemble_mips32_special(uint32_t op, uint32_t loc)
 {
-	uint32_t s = (op >> 21) & 0x1F,
+	unsigned int s = (op >> 21) & 0x1F,
 		t = (op >> 16) & 0x1F,
 		d = (op >> 11) & 0x1F,
 		sa = (op >> 6) & 0x1F,
 		op_min = op & 0x3F;
 	switch (op_min) {
 	case 0x00:  // SLL RD, RT, SA
-		siprintf(canon, "sll $%" PRIu32 ", $%" PRIu32 ", %" PRIu32, d, t, sa);
 		if (d == 0)  // Effectively a nop
-			strcpy(shrt, "nop");
+			iprintf("nop");
 #if defined UNLIKELY_SHORT_FORMS
 		else if (t == 0)  // Moving zero into RD
-			siprintf(shrt, "li $%" PRIu32 ", 0", d);
+			iprintf("li      $%u, 0", d);
 		else if (sa == 0)  // Moving RT into RD
-			siprintf(canon, "move $%" PRIu32 ", $%" PRIu32, d, t);
+			iprintf("move    $%u, $%u", d, t);
 #endif
 		else
-			strcpy(shrt, canon);
+			iprintf("sll     $%u, $%u, %u", d, t, sa);
 		return true;
 	case 0x02:  // SRL RD, RT, SA
-		siprintf(canon, "srl $%" PRIu32 ", $%" PRIu32 ", %" PRIu32, d, t, sa);
 #if defined UNLIKELY_SHORT_FORMS
 		if (d == 0)  // Effectively a nop
-			strcpy(shrt, "nop");
+			iprintf("nop");
 		else if (t == 0)  // Moving zero into RD
-			siprintf(shrt, "li $%" PRIu32 ", 0", d);
+			iprintf("li      $%u, 0", d);
 		else if (sa == 0)  // Moving RT into RD
-			siprintf(canon, "move $%" PRIu32 ", $%" PRIu32, d, t);
+			iprintf("move    $%u, $%u", d, t);
 		else
 #endif
-			strcpy(shrt, canon);
+			iprintf("srl     $%u, $%u, %u", d, t, sa);
 		return true;
 	case 0x03:  // SRA RD, RT, SA
-		siprintf(canon, "sra $%" PRIu32 ", $%" PRIu32 ", %" PRIu32, d, t, sa);
 #if defined UNLIKELY_SHORT_FORMS
 		if (d == 0)  // Effectively a nop
-			strcpy(shrt, "nop");
+			iprintf("nop");
 		else if (t == 0)  // Moving zero into RD
-			siprintf(shrt, "li $%" PRIu32 ", 0", d);
+			iprintf("li      $%u, 0", d);
 		else if (sa == 0)  // Moving RT into RD
-			siprintf(canon, "move $%" PRIu32 ", $%" PRIu32, d, t);
+			iprintf("move    $%u, $%u", d, t);
 		else
 #endif
-			strcpy(shrt, canon);
+			iprintf("sra     $%u, $%u, %u", d, t, sa);
 		return true;
 	case 0x04:  // SLLV RD, RT, RS
-		siprintf(canon, "sllv $%" PRIu32 ", $%" PRIu32 ", $%" PRIu32, d, t, s);
 #if defined UNLIKELY_SHORT_FORMS
 		if (d == 0)  // Effectively a nop
-			strcpy(shrt, "nop");
+			iprintf("nop");
 		else if (t == 0)  // Moving zero into RD
-			siprintf(shrt, "li $%" PRIu32 ", 0", d);
+			iprintf("li      $%u, 0", d);
 		else if (s == 0)  // Moving RT into RD
-			siprintf(canon, "move $%" PRIu32 ", $%" PRIu32, d, t);
+			iprintf("move    $%u, $%u", d, t);
 		else
 #endif
-			strcpy(shrt, canon);
+			iprintf("sllv    $%u, $%u, $%u", d, t, s);
 		return true;
 	case 0x06:  // SRLV RD, RT, SA
-		siprintf(canon, "srlv $%" PRIu32 ", $%" PRIu32 ", $%" PRIu32, d, t, s);
 #if defined UNLIKELY_SHORT_FORMS
 		if (d == 0)  // Effectively a nop
-			strcpy(shrt, "nop");
+			iprintf("nop");
 		else if (t == 0)  // Moving zero into RD
-			siprintf(shrt, "li $%" PRIu32 ", 0", d);
+			iprintf("li      $%u, 0", d);
 		else if (s == 0)  // Moving RT into RD
-			siprintf(canon, "move $%" PRIu32 ", $%" PRIu32, d, t);
+			iprintf("move    $%u, $%u", d, t);
 		else
 #endif
-			strcpy(shrt, canon);
+			iprintf("srlv    $%u, $%u, $%u", d, t, s);
 		return true;
 	case 0x07:  // SRAV RD, RT, SA
-		siprintf(canon, "srav $%" PRIu32 ", $%" PRIu32 ", $%" PRIu32, d, t, s);
 #if defined UNLIKELY_SHORT_FORMS
 		if (d == 0)  // Effectively a nop
-			strcpy(shrt, "nop");
+			iprintf("nop");
 		else if (t == 0)  // Moving zero into RD
-			siprintf(shrt, "li $%" PRIu32 ", 0", d);
+			iprintf("li      $%u, 0", d);
 		else if (s == 0)  // Moving RT into RD
-			siprintf(canon, "move $%" PRIu32 ", $%" PRIu32, d, t);
+			iprintf("move    $%u, $%u", d, t);
 		else
 #endif
-			strcpy(shrt, canon);
+			iprintf("srav    $%u, $%u, $%u", d, t, s);
 		return true;
 	case 0x08:  // JR RS
-		siprintf(canon, "jr $%" PRIu32, s);
-		strcpy(shrt, canon);
+		iprintf("jr      $%u", s);
 		return true;
 	case 0x09:  // JALR RD, RS
-		siprintf(canon, "jalr $%" PRIu32 ", $%" PRIu32, d, s);
-		strcpy(shrt, canon);
+		iprintf("jalr    $%u, $%u", d, s);
 		return true;
 	case 0x0A:  // MOVZ RD, RS, RT
-		siprintf(canon, "movz $%" PRIu32 ", $%" PRIu32 ", $%" PRIu32, d, s, t);
 #if defined UNLIKELY_SHORT_FORMS
 		if (d == 0 || d == s)  // Effectively a nop
-			strcpy(shrt, "nop");
+			iprintf("nop");
 		else if (t == 0)  // Moving RS into RD
-			siprintf(shrt, "move $%" PRIu32 ", $%" PRIu32, d, s);
+			iprintf("move    $%u, $%u", d, s);
 		else
 #endif
-			strcpy(shrt, canon);
+			iprintf("movz    $%u, $%u, $%u", d, s, t);
 		return true;
 	case 0x0B:  // MOVN RD, RS, RT
-		siprintf(canon, "movn $%" PRIu32 ", $%" PRIu32 ", $%" PRIu32, d, s, t);
 #if defined UNLIKELY_SHORT_FORMS
 		if (d == 0 || t == 0 || d == s)  // Effectively a nop
-			strcpy(shrt, "nop");
+			iprintf("nop");
 		else
 #endif
-			strcpy(shrt, canon);
+			iprintf("movn    $%u, $%u, $%u", d, s, t);
 		return true;
 	case 0x0C:  // SYSCALL imm20
-		siprintf(canon, "syscall 0x%" PRIX32, (op >> 6) & UINT32_C(0xFFFFF));
-		strcpy(shrt, canon);
+		iprintf("syscall 0x%" PRIX32, (op >> 6) & UINT32_C(0xFFFFF));
 		return true;
 	case 0x0D:  // BREAK imm20
-		siprintf(canon, "break 0x%" PRIX32, (op >> 6) & UINT32_C(0xFFFFF));
-		strcpy(shrt, canon);
+		iprintf("break   0x%" PRIX32, (op >> 6) & UINT32_C(0xFFFFF));
 		return true;
 	case 0x0F:  // SYNC stype (the same field as sa)
-		siprintf(canon, "sync 0x%" PRIX32, sa);
-		strcpy(shrt, canon);
+		iprintf("sync    0x%X", sa);
 		return true;
 	case 0x10:  // MFHI RD
-		siprintf(canon, "mfhi $%" PRIu32, d);
 #if defined UNLIKELY_SHORT_FORMS
 		if (d == 0)  // Effectively a nop
-			strcpy(shrt, "nop");
+			iprintf("nop");
 		else
 #endif
-			strcpy(shrt, canon);
+			iprintf("mfhi    $%u", d);
 		return true;
 	case 0x11:  // MTHI RS
-		siprintf(canon, "mthi $%" PRIu32, s);
-		strcpy(shrt, canon);
+		iprintf("mthi    $%u", s);
 		return true;
 	case 0x12:  // MFLO RD
-		siprintf(canon, "mflo $%" PRIu32, d);
 #if defined UNLIKELY_SHORT_FORMS
 		if (d == 0)  // Effectively a nop
-			strcpy(shrt, "nop");
+			iprintf("nop");
 		else
 #endif
-			strcpy(shrt, canon);
+			iprintf("mflo    $%u", d);
 		return true;
 	case 0x13:  // MTLO RS
-		siprintf(canon, "mtlo $%" PRIu32, s);
-		strcpy(shrt, canon);
+		iprintf("mtlo    $%u", s);
 		return true;
 	case 0x18:  // MULT RS, RT
-		siprintf(canon, "mult $%" PRIu32 ", $%" PRIu32, s, t);
-		strcpy(shrt, canon);
+		iprintf("mult    $%u, $%u", s, t);
 		return true;
 	case 0x19:  // MULTU RS, RT
-		siprintf(canon, "multu $%" PRIu32 ", $%" PRIu32, s, t);
-		strcpy(shrt, canon);
+		iprintf("multu   $%u, $%u", s, t);
 		return true;
 	case 0x1A:  // DIV RS, RT
-		siprintf(canon, "div $%" PRIu32 ", $%" PRIu32, s, t);
-		strcpy(shrt, canon);
+		iprintf("div     $%u, $%u", s, t);
 		return true;
 	case 0x1B:  // DIVU RS, RT
-		siprintf(canon, "divu $%" PRIu32 ", $%" PRIu32, s, t);
-		strcpy(shrt, canon);
+		iprintf("divu    $%u, $%u", s, t);
 		return true;
 	case 0x20:  // ADD RD, RS, RT
-		siprintf(canon, "add $%" PRIu32 ", $%" PRIu32 ", $%" PRIu32, d, s, t);
 #if defined UNLIKELY_SHORT_FORMS
 		if (d == 0 || (d == s && s != 0 && t == 0)
 		 || (d == t && t != 0 && s == 0))  // Effectively a nop
-			strcpy(shrt, "nop");
+			iprintf("nop");
 		else if (s == 0 && t == 0)  // Moving zero into RD
-			siprintf(shrt, "li $%" PRIu32 ", 0", d);
+			iprintf("li      $%u, 0", d);
 		else if (s == 0)  // Moving RT into RD
-			siprintf(shrt, "move $%" PRIu32 ", $%" PRIu32, d, t);
+			iprintf("move    $%u, $%u", d, t);
 		else if (t == 0)  // Moving RS into RD
-			siprintf(shrt, "move $%" PRIu32 ", $%" PRIu32, d, s);
+			iprintf("move    $%u, $%u", d, s);
 		else
 #endif
-			strcpy(shrt, canon);
+			iprintf("add     $%u, $%u, $%u", d, s, t);
 		return true;
 	case 0x21:  // ADDU RD, RS, RT
-		siprintf(canon, "addu $%" PRIu32 ", $%" PRIu32 ", $%" PRIu32, d, s, t);
 #if defined UNLIKELY_SHORT_FORMS
 		if (d == 0 || (d == s && s != 0 && t == 0)
 		 || (d == t && t != 0 && s == 0))  // Effectively a nop
-			strcpy(shrt, "nop");
+			iprintf("nop");
 		else if (s == 0 && t == 0)  // Moving zero into RD
-			siprintf(shrt, "li $%" PRIu32 ", 0", d);
+			iprintf("li      $%u, 0", d);
 		else
 #endif
 		if (s == 0)  // Moving RT into RD
-			siprintf(shrt, "move $%" PRIu32 ", $%" PRIu32, d, t);
+			iprintf("move    $%u, $%u", d, t);
 		else if (t == 0)  // Moving RS into RD
-			siprintf(shrt, "move $%" PRIu32 ", $%" PRIu32, d, s);
+			iprintf("move    $%u, $%u", d, s);
 		else
-			strcpy(shrt, canon);
+			iprintf("addu    $%u, $%u, $%u", d, s, t);
 		return true;
 	case 0x22:  // SUB RD, RS, RT
-		siprintf(canon, "sub $%" PRIu32 ", $%" PRIu32 ", $%" PRIu32, d, s, t);
 #if defined UNLIKELY_SHORT_FORMS
 		if (d == 0 || (d == s && s != 0 && t == 0))  // Effectively a nop
-			strcpy(shrt, "nop");
+			iprintf("nop");
 		else if (s == t)  // Moving zero into RD
-			siprintf(shrt, "li $%" PRIu32 ", 0", d);
+			iprintf("li      $%u, 0", d);
 		else if (t == 0)  // Moving RS into RD
-			siprintf(shrt, "move $%" PRIu32 ", $%" PRIu32, d, s);
+			iprintf("move    $%u, $%u", d, s);
 		else
 #endif
 		if (s == 0)  // Negating RT into RD
-			siprintf(shrt, "negu $%" PRIu32 ", $%" PRIu32, d, t);
+			iprintf("negu    $%u, $%u", d, t);
 		else
-			strcpy(shrt, canon);
+			iprintf("sub     $%u, $%u, $%u", d, s, t);
 		return true;
 	case 0x23:  // SUBU RD, RS, RT
-		siprintf(canon, "subu $%" PRIu32 ", $%" PRIu32 ", $%" PRIu32, d, s, t);
 #if defined UNLIKELY_SHORT_FORMS
 		if (d == 0 || (d == s && s != 0 && t == 0))  // Effectively a nop
-			strcpy(shrt, "nop");
+			iprintf("nop");
 		else if (s == t)  // Moving zero into RD
-			siprintf(shrt, "li $%" PRIu32 ", 0", d);
+			iprintf("li      $%u, 0", d);
 		else if (t == 0)  // Moving RS into RD
-			siprintf(shrt, "move $%" PRIu32 ", $%" PRIu32, d, s);
+			iprintf("move    $%u, $%u", d, s);
 		else
 #endif
 		if (s == 0)  // Negating RT into RD
-			siprintf(shrt, "negu $%" PRIu32 ", $%" PRIu32, d, t);
+			iprintf("negu    $%u, $%u", d, t);
 		else
-			strcpy(shrt, canon);
+			iprintf("subu    $%u, $%u, $%u", d, s, t);
 		return true;
 	case 0x24:  // AND RD, RS, RT
-		siprintf(canon, "and $%" PRIu32 ", $%" PRIu32 ", $%" PRIu32, d, s, t);
 #if defined UNLIKELY_SHORT_FORMS
 		if (d == 0 || (d == s && s == t))  // Effectively a nop
-			strcpy(shrt, "nop");
+			iprintf("nop");
 		else if (s == 0 || t == 0)  // Moving zero into RD
-			siprintf(shrt, "li $%" PRIu32 ", 0", d);
+			iprintf("li      $%u, 0", d);
 		else if (s == t)  // Moving RS (== RT) into RD
-			siprintf(shrt, "move $%" PRIu32 ", $%" PRIu32, d, s);
+			iprintf("move    $%u, $%u", d, s);
 		else
 #endif
-			strcpy(shrt, canon);
+			iprintf("and     $%u, $%u, $%u", d, s, t);
 		return true;
 	case 0x25:  // OR RD, RS, RT
-		siprintf(canon, "or $%" PRIu32 ", $%" PRIu32 ", $%" PRIu32, d, s, t);
 #if defined UNLIKELY_SHORT_FORMS
 		if (d == 0 || (d == s && (t == s || t == 0))
 		 || (d == t && (s == t || s == 0)))  // Effectively a nop
-			strcpy(shrt, "nop");
+			iprintf("nop");
 		else
 #endif
 		if (s == t) {  // Moving RS (== RT) into RD
 			if (s == 0)  // Moving zero into RD
-				siprintf(shrt, "li $%" PRIu32 ", 0", d);
+				iprintf("li      $%u, 0", d);
 			else
-				siprintf(shrt, "move $%" PRIu32 ", $%" PRIu32, d, s);
+				iprintf("move    $%u, $%u", d, s);
 		} else if (s == 0 /* && t != 0 */)  // Moving RT into RD
-			siprintf(shrt, "move $%" PRIu32 ", $%" PRIu32, d, t);
+			iprintf("move    $%u, $%u", d, t);
 		else if (t == 0 /* && s != 0 */)  // Moving RS into RD
-			siprintf(shrt, "move $%" PRIu32 ", $%" PRIu32, d, s);
+			iprintf("move    $%u, $%u", d, s);
 		else
-			strcpy(shrt, canon);
+			iprintf("or      $%u, $%u, $%u", d, s, t);
 		return true;
 	case 0x26:  // XOR RD, RS, RT
-		siprintf(canon, "xor $%" PRIu32 ", $%" PRIu32 ", $%" PRIu32, d, s, t);
 #if defined UNLIKELY_SHORT_FORMS
 		if (d == 0 || (d == s && t == 0) || (d == t && s == 0))  // Effectively a nop
-			strcpy(shrt, "nop");
+			iprintf("nop");
 		else if (s == t)  // Moving zero into RD
-			siprintf(shrt, "li $%" PRIu32 ", 0", d);
+			iprintf("li      $%u, 0", d);
 		else
 #endif
-			strcpy(shrt, canon);
+			iprintf("xor     $%u, $%u, $%u", d, s, t);
 		return true;
 	case 0x27:  // NOR RD, RS, RT
-		siprintf(canon, "nor $%" PRIu32 ", $%" PRIu32 ", $%" PRIu32, d, s, t);
 #if defined UNLIKELY_SHORT_FORMS
 		if (d == 0)  // Effectively a nop
-			strcpy(shrt, "nop");
+			iprintf("nop");
 		else
 #endif
 		if (s == 0 && t == 0)  // Loading -1 into RD
-			siprintf(shrt, "li $%" PRIu32 ", -1", d);
+			iprintf("li      $%u, -1", d);
 		else
-			strcpy(shrt, canon);
+			iprintf("nor     $%u, $%u, $%u", d, s, t);
 		return true;
 	case 0x2A:  // SLT RD, RS, RT
-		siprintf(canon, "slt $%" PRIu32 ", $%" PRIu32 ", $%" PRIu32, d, s, t);
 #if defined UNLIKELY_SHORT_FORMS
 		if (d == 0)  // Effectively a nop
-			strcpy(shrt, "nop");
+			iprintf("nop");
 		else if (s == t)  // Moving zero into RD (Reg < Reg: 0)
-			siprintf(shrt, "li $%" PRIu32 ", 0", d);
+			iprintf("li      $%u, 0", d);
 		else
 #endif
-			strcpy(shrt, canon);
+			iprintf("slt     $%u, $%u, $%u", d, s, t);
 		return true;
 	case 0x2B:  // SLTU RD, RS, RT
-		siprintf(canon, "sltu $%" PRIu32 ", $%" PRIu32 ", $%" PRIu32, d, s, t);
 #if defined UNLIKELY_SHORT_FORMS
 		if (d == 0)  // Effectively a nop
-			strcpy(shrt, "nop");
+			iprintf("nop");
 		else if (s == t)  // Moving zero into RD (Reg < Reg: 0)
-			siprintf(shrt, "li $%" PRIu32 ", 0", d);
+			iprintf("li      $%u, 0", d);
 		else
 #endif
-			strcpy(shrt, canon);
+			iprintf("sltu    $%u, $%u, $%u", d, s, t);
 		return true;
 	case 0x30:  // TGE RS, RT
-		siprintf(canon, "tge $%" PRIu32 ", $%" PRIu32, s, t);
-		strcpy(shrt, canon);
+		iprintf("tge     $%u, $%u", s, t);
 		return true;
 	case 0x31:  // TGEU RS, RT
-		siprintf(canon, "tgeu $%" PRIu32 ", $%" PRIu32, s, t);
-		strcpy(shrt, canon);
+		iprintf("tgeu    $%u, $%u", s, t);
 		return true;
 	case 0x32:  // TLT RS, RT
-		siprintf(canon, "tlt $%" PRIu32 ", $%" PRIu32, s, t);
-		strcpy(shrt, canon);
+		iprintf("tlt     $%u, $%u", s, t);
 		return true;
 	case 0x33:  // TLTU RS, RT
-		siprintf(canon, "tltu $%" PRIu32 ", $%" PRIu32, s, t);
-		strcpy(shrt, canon);
+		iprintf("tltu    $%u, $%u", s, t);
 		return true;
 	case 0x34:  // TEQ RS, RT
-		siprintf(canon, "teq $%" PRIu32 ", $%" PRIu32, s, t);
-		strcpy(shrt, canon);
+		iprintf("teq     $%u, $%u", s, t);
 		return true;
 	case 0x36:  // TNE RS, RT
-		siprintf(canon, "tne $%" PRIu32 ", $%" PRIu32, s, t);
-		strcpy(shrt, canon);
+		iprintf("tne     $%u, $%u", s, t);
 		return true;
 	default:
 		return false;
@@ -553,87 +515,74 @@ static bool disassemble_mips32_special(uint32_t op, uint32_t loc, char* shrt, ch
  * Returns true and fills both buffers if the instruction is defined.
  * Returns false if the instruction is undefined.
  */
-static bool disassemble_mips32_regimm(uint32_t op, uint32_t loc, char* shrt, char* canon)
+static bool disassemble_mips32_regimm(uint32_t op, uint32_t loc)
 {
-	uint32_t s = (op >> 21) & 0x1F,
+	unsigned int s = (op >> 21) & 0x1F,
 		op_min = (op >> 16) & 0x1F;
 	uint16_t imm = op;
 	switch (op_min) {
 	case 0x00:  // BLTZ RS, PC+IMM+4
-		siprintf(canon, "bltz $%" PRIu32 ", 0x%08" PRIX32, s, rel_jump(loc, (int16_t) imm));
 #if defined UNLIKELY_SHORT_FORMS
 		if (s == 0)  // Effectively a nop with a branch delay slot
-			strcpy(shrt, "nop");
+			iprintf("nop");
 		else
 #endif
-			strcpy(shrt, canon);
+			iprintf("bltz    $%u, 0x%08" PRIX32, s, rel_jump(loc, (int16_t) imm));
 		return true;
 	case 0x01:  // BGEZ RS, PC+IMM+4
-		siprintf(canon, "bgez $%" PRIu32 ", 0x%08" PRIX32, s, rel_jump(loc, (int16_t) imm));
 		if (s == 0)  // Effectively an unconditional immediate jump
-			siprintf(shrt, "b %" PRIX32, rel_jump(loc, (int16_t) imm));
+			iprintf("b       %" PRIX32, rel_jump(loc, (int16_t) imm));
 		else
-			strcpy(shrt, canon);
+			iprintf("bgez    $%u, 0x%08" PRIX32, s, rel_jump(loc, (int16_t) imm));
 		return true;
 	case 0x02:  // BLTZL RS, PC+IMM+4
-		siprintf(canon, "bltzl $%" PRIu32 ", 0x%08" PRIX32, s, rel_jump(loc, (int16_t) imm));
-		strcpy(shrt, canon);
+		iprintf("bltzl   $%u, 0x%08" PRIX32, s, rel_jump(loc, (int16_t) imm));
 		return true;
 	case 0x03:  // BGEZL RS, PC+IMM+4
-		siprintf(canon, "bgezl $%" PRIu32 ", 0x%08" PRIX32, s, rel_jump(loc, (int16_t) imm));
 #if defined UNLIKELY_SHORT_FORMS
 		if (s == 0)  // Effectively an unconditional immediate jump
-			siprintf(shrt, "b %" PRIX32, rel_jump(loc, (int16_t) imm));
+			iprintf("b       %" PRIX32, rel_jump(loc, (int16_t) imm));
 		else
 #endif
-			strcpy(shrt, canon);
+			iprintf("bgezl   $%u, 0x%08" PRIX32, s, rel_jump(loc, (int16_t) imm));
 		return true;
 	case 0x08:  // TGEI RS, IMM
-		siprintf(canon, "tgei $%" PRIu32 ", 0x%" PRIX16, s, imm);
-		siprintf(shrt, "tgei $%" PRIu32 ", %" PRIi16, s, (int16_t) imm);
+		iprintf("tgei    $%u, %" PRIi16, s, (int16_t) imm);
 		return true;
 	case 0x09:  // TGEIU RS, IMM
-		siprintf(canon, "tgeiu $%" PRIu32 ", 0x%" PRIX16, s, imm);
-		siprintf(shrt, "tgeiu $%" PRIu32 ", %" PRIu16, s, imm);
+		iprintf("tgeiu   $%u, %" PRIu16, s, imm);
 		return true;
 	case 0x0A:  // TLTI RS, IMM
-		siprintf(canon, "tlti $%" PRIu32 ", 0x%" PRIX16, s, imm);
-		siprintf(shrt, "tlti $%" PRIu32 ", %" PRIi16, s, (int16_t) imm);
+		iprintf("tlti    $%u, %" PRIi16, s, (int16_t) imm);
 		return true;
 	case 0x0B:  // TLTIU RS, IMM
-		siprintf(canon, "tltiu $%" PRIu32 ", 0x%" PRIX16, s, imm);
-		siprintf(shrt, "tltiu $%" PRIu32 ", %" PRIu16, s, imm);
+		iprintf("tltiu   $%u, %" PRIu16, s, imm);
 		return true;
 	case 0x0C:  // TEQI RS, IMM
-		siprintf(canon, "teqi $%" PRIu32 ", 0x%" PRIX16, s, imm);
-		siprintf(shrt, "teqi $%" PRIu32 ", %" PRIi16, s, (int16_t) imm);
+		iprintf("teqi    $%u, %" PRIi16, s, (int16_t) imm);
 		return true;
 	case 0x0E:  // TNEI RS, IMM
-		siprintf(canon, "tnei $%" PRIu32 ", 0x%" PRIX16, s, imm);
-		siprintf(shrt, "tnei $%" PRIu32 ", %" PRIi16, s, (int16_t) imm);
+		iprintf("tnei    $%u, %" PRIi16, s, (int16_t) imm);
 		return true;
 	case 0x10:  // BLTZAL RS, PC+IMM+4
-		siprintf(canon, "bltzal $%" PRIu32 ", 0x%08" PRIX32, s, rel_jump(loc, (int16_t) imm));
-		strcpy(shrt, canon);
+		iprintf("bltzal  $%u, 0x%08" PRIX32, s, rel_jump(loc, (int16_t) imm));
 		return true;
 	case 0x11:  // BGEZAL RS, PC+IMM+4
-		siprintf(canon, "bgezal $%" PRIu32 ", 0x%08" PRIX32, s, rel_jump(loc, (int16_t) imm));
 		if (s == 0)  // Effectively an unconditional immediate call
-			siprintf(shrt, "bal 0x%08" PRIX32, rel_jump(loc, (int16_t) imm));
+			iprintf("bal     0x%08" PRIX32, rel_jump(loc, (int16_t) imm));
 		else
-			strcpy(shrt, canon);
+			iprintf("bgezal  $%u, 0x%08" PRIX32, s, rel_jump(loc, (int16_t) imm));
+		return true;
 	case 0x12:  // BLTZALL RS, PC+IMM+4
-		siprintf(canon, "bltzall $%" PRIu32 ", 0x%08" PRIX32, s, rel_jump(loc, (int16_t) imm));
-		strcpy(shrt, canon);
+		iprintf("bltzall $%u, 0x%08" PRIX32, s, rel_jump(loc, (int16_t) imm));
 		return true;
 	case 0x13:  // BGEZALL RS, PC+IMM+4
-		siprintf(canon, "bgezall $%" PRIu32 ", 0x%08" PRIX32, s, rel_jump(loc, (int16_t) imm));
 #if defined UNLIKELY_SHORT_FORMS
 		if (s == 0)  // Effectively an unconditional immediate call
-			siprintf(shrt, "bal 0x%08" PRIX32, rel_jump(loc, (int16_t) imm));
+			iprintf("bal     0x%08" PRIX32, rel_jump(loc, (int16_t) imm));
 		else
 #endif
-			strcpy(shrt, canon);
+			iprintf("bgezall $%u, 0x%08" PRIX32, s, rel_jump(loc, (int16_t) imm));
 		return true;
 	default:
 		return false;
@@ -645,55 +594,46 @@ static bool disassemble_mips32_regimm(uint32_t op, uint32_t loc, char* shrt, cha
  * Returns true and fills both buffers if the instruction is defined.
  * Returns false if the instruction is undefined.
  */
-static bool disassemble_mips32_cop0(uint32_t op, uint32_t loc, char* shrt, char* canon)
+static bool disassemble_mips32_cop0(uint32_t op, uint32_t loc)
 {
 	if (op & UINT32_C(0x02000000)) { /* Bit 25, CO, is set */
-		uint32_t op_min = op & 0x3F;
+		unsigned int op_min = op & 0x3F;
 		switch (op_min) {
 		case 0x01:  // TLBR
-			strcpy(canon, "tlbr");
-			strcpy(shrt, canon);
+			iprintf("tlbr");
 			return true;
 		case 0x02:  // TLBWI
-			strcpy(canon, "tlbwi");
-			strcpy(shrt, canon);
+			iprintf("tlbwi");
 			return true;
 		case 0x06:  // TLBWR
-			strcpy(canon, "tlbwr");
-			strcpy(shrt, canon);
+			iprintf("tlbwr");
 			return true;
 		case 0x08:  // TLBP
-			strcpy(canon, "tlbp");
-			strcpy(shrt, canon);
+			iprintf("tlbp");
 			return true;
 		case 0x18:  // ERET
-			strcpy(canon, "eret");
-			strcpy(shrt, canon);
+			iprintf("eret");
 			return true;
 		case 0x1F:  // DERET
-			strcpy(canon, "deret");
-			strcpy(shrt, canon);
+			iprintf("deret");
 			return true;
 		case 0x20:  // WAIT
-			strcpy(canon, "wait");
-			strcpy(shrt, canon);
+			iprintf("wait");
 			return true;
 		default:
 			return false;
 		}
 	} else {
-		uint32_t cop0_min = (op >> 21) & 0x1F;
-		uint32_t t = (op >> 16) & 0x1F,
+		unsigned int cop0_min = (op >> 21) & 0x1F;
+		unsigned int t = (op >> 16) & 0x1F,
 			d = (op >> 11) & 0x1F,
 			sel = op & 0x7;
 		switch (cop0_min) {
 		case 0x00:  // MFC0 rt, rd, sel
-			siprintf(canon, "mfc0 $%" PRIu32 ", $%" PRIu32 ", %" PRIu32, t, d, sel);
-			strcpy(shrt, canon);
+			iprintf("mfc0    $%u, $%u, %u", t, d, sel);
 			return true;
 		case 0x04:  // MTC0 rt, rd, sel
-			siprintf(canon, "mtc0 $%" PRIu32 ", $%" PRIu32 ", %" PRIu32, t, d, sel);
-			strcpy(shrt, canon);
+			iprintf("mtc0    $%u, $%u, %u", t, d, sel);
 			return true;
 		default:
 			return false;
@@ -705,13 +645,12 @@ static bool disassemble_mips32_cop0(uint32_t op, uint32_t loc, char* shrt, char*
  * Disassembles a MIPS32 PREF instruction.
  * Returns true and fills both buffers.
  */
-static bool disassemble_mips32_pref(uint32_t op, uint32_t loc, char* shrt, char* canon)
+static bool disassemble_mips32_pref(uint32_t op, uint32_t loc)
 {
-	uint32_t hint = (op >> 16) & 0x1F,
+	unsigned int hint = (op >> 16) & 0x1F,
 		base = (op >> 21) & 0x1F;
 	uint16_t imm = op;
-	siprintf(canon, "pref 0x%" PRIX32 ", 0x%" PRIX16 "($%" PRIu32 ")", hint, imm, base);
-	siprintf(shrt, "pref 0x%" PRIX32 ", %" PRIi16 "($%" PRIu32 ")", hint, (int16_t) imm, base);
+	iprintf("pref    0x%X, %" PRIi16 "($%u)", hint, (int16_t) imm, base);
 	return true;
 }
 
@@ -719,13 +658,12 @@ static bool disassemble_mips32_pref(uint32_t op, uint32_t loc, char* shrt, char*
  * Disassembles a MIPS32 CACHE instruction.
  * Returns true and fills both buffers.
  */
-static bool disassemble_mips32_cache(uint32_t op, uint32_t loc, char* shrt, char* canon)
+static bool disassemble_mips32_cache(uint32_t op, uint32_t loc)
 {
-	uint32_t cache_op = (op >> 16) & 0x1F,
+	unsigned int cache_op = (op >> 16) & 0x1F,
 		base = (op >> 21) & 0x1F;
 	uint16_t imm = op;
-	siprintf(canon, "cache 0x%" PRIX32 ", 0x%" PRIX16 "($%" PRIu32 ")", cache_op, imm, base);
-	siprintf(shrt, "cache 0x%" PRIX32 ", %" PRIi16 "($%" PRIu32 ")", cache_op, (int16_t) imm, base);
+	iprintf("cache   0x%X, %" PRIi16 "($%u)", cache_op, (int16_t) imm, base);
 	return true;
 }
 
@@ -734,226 +672,196 @@ static bool disassemble_mips32_cache(uint32_t op, uint32_t loc, char* shrt, char
  * Returns true and fills both buffers if the instruction is defined.
  * Returns false if the instruction is undefined.
  */
-static bool disassemble_mips32_i(uint32_t op, uint32_t loc, char* shrt, char* canon)
+static bool disassemble_mips32_i(uint32_t op, uint32_t loc)
 {
-	uint32_t op_maj = (op >> 26) & 0x3F;
-	uint32_t s = (op >> 21) & 0x1F,
+	unsigned int op_maj = (op >> 26) & 0x3F;
+	unsigned int s = (op >> 21) & 0x1F,
 		t = (op >> 16) & 0x1F;
 	uint16_t imm = op;
 	switch (op_maj) {
 	case 0x04:  // BEQ RS, RT, PC+IMM+4
-		siprintf(canon, "beq $%" PRIu32 ", $%" PRIu32 ", 0x%08" PRIX32, s, t, rel_jump(loc, (int16_t) imm));
 		if (s == t)  // Effectively an unconditional immediate jump
-			siprintf(shrt, "b 0x%08" PRIX32, rel_jump(loc, (int16_t) imm));
+			iprintf("b       0x%08" PRIX32, rel_jump(loc, (int16_t) imm));
 		else
-			strcpy(shrt, canon);
+			iprintf("beq     $%u, $%u, 0x%08" PRIX32, s, t, rel_jump(loc, (int16_t) imm));
 		return true;
 	case 0x05:  // BNE RS, RT, PC+IMM+4
-		siprintf(canon, "bne $%" PRIu32 ", $%" PRIu32 ", 0x%08" PRIX32, s, t, rel_jump(loc, (int16_t) imm));
 #if defined UNLIKELY_SHORT_FORMS
 		if (s == t)  // Effectively a nop with a branch delay slot
-			strcpy(shrt, "nop");
+			iprintf("nop");
 		else
 #endif
-			strcpy(shrt, canon);
+			iprintf("bne     $%u, $%u, 0x%08" PRIX32, s, t, rel_jump(loc, (int16_t) imm));
 		return true;
 	case 0x06:  // BLEZ RS, PC+IMM+4
-		siprintf(canon, "blez $%" PRIu32 ", 0x%08" PRIX32, s, rel_jump(loc, (int16_t) imm));
 		if (s == 0)  // Effectively an unconditional immediate jump
-			siprintf(shrt, "b 0x%08" PRIX32, rel_jump(loc, (int16_t) imm));
+			iprintf("b       0x%08" PRIX32, rel_jump(loc, (int16_t) imm));
 		else
-			strcpy(shrt, canon);
+			iprintf("blez    $%u, 0x%08" PRIX32, s, rel_jump(loc, (int16_t) imm));
 		return true;
 	case 0x07:  // BGTZ RS, PC+IMM+4
-		siprintf(canon, "bgtz $%" PRIu32 ", 0x%08" PRIX32, s, rel_jump(loc, (int16_t) imm));
 #if defined UNLIKELY_SHORT_FORMS
 		if (s == 0)  // Effectively a nop with a branch delay slot
-			strcpy(shrt, "nop");
+			iprintf("nop");
 		else
 #endif
-			strcpy(shrt, canon);
+			iprintf("bgtz    $%u, 0x%08" PRIX32, s, rel_jump(loc, (int16_t) imm));
 		return true;
 	case 0x08:  // ADDI RT, RS, IMM
-		siprintf(canon, "addi $%" PRIu32 ", $%" PRIu32 ", 0x%" PRIX16, t, s, imm);
 #if defined UNLIKELY_SHORT_FORMS
 		if (t == 0)  // Effectively a nop
-			strcpy(shrt, "nop");
+			iprintf("nop");
 		else if (s == 0)  // Loading [-32768, 32767] into RT
-			siprintf(shrt, "li $%" PRIu32 ", %" PRIi16, t, (int16_t) imm);
+			iprintf("li      $%u, %" PRIi16, t, (int16_t) imm);
 		else if (imm == 0)  // Moving RS into RT
-			siprintf(shrt, "move $%" PRIu32 ", $%" PRIu32, t, s);
+			iprintf("move    $%u, $%u", t, s);
 		else
 #endif
-			siprintf(shrt, "addi $%" PRIu32 ", $%" PRIu32 ", %" PRIi16, t, s, (int16_t) imm);
+			iprintf("addi    $%u, $%u, %" PRIi16, t, s, (int16_t) imm);
 		return true;
 	case 0x09:  // ADDIU RT, RS, IMM
-		siprintf(canon, "addiu $%" PRIu32 ", $%" PRIu32 ", 0x%" PRIX16, t, s, imm);
 #if defined UNLIKELY_SHORT_FORMS
 		if (t == 0)  // Effectively a nop
-			strcpy(shrt, "nop");
+			iprintf("nop");
 		else
 #endif
 		if (s == 0)  // Loading [-32768, 32767] into RT
-			siprintf(shrt, "li $%" PRIu32 ", %" PRIi16, t, (int16_t) imm);
+			iprintf("li      $%u, %" PRIi16, t, (int16_t) imm);
 #if defined UNLIKELY_SHORT_FORMS
 		else if (imm == 0)  // Moving RS into RT
-			siprintf(shrt, "move $%" PRIu32 ", $%" PRIu32, t, s);
+			iprintf("move    $%u, $%u", t, s);
 #endif
 		else
-			siprintf(shrt, "addiu $%" PRIu32 ", $%" PRIu32 ", %" PRIi16, t, s, (int16_t) imm);
+			iprintf("addiu   $%u, $%u, %" PRIi16, t, s, (int16_t) imm);
 		return true;
 	case 0x0A:  // SLTI RT, RS, IMM
-		siprintf(canon, "slti $%" PRIu32 ", $%" PRIu32 ", 0x%" PRIX16, t, s, imm);
 #if defined UNLIKELY_SHORT_FORMS
 		if (t == 0)  // Effectively a nop
-			strcpy(shrt, "nop");
+			iprintf("nop");
 		else if (s == 0 && imm == 0)  // Moving zero into RT
-			siprintf(shrt, "li $%" PRIu32 ", 0", t);
+			iprintf("li      $%u, 0", t);
 		else
 #endif
-			siprintf(shrt, "slti $%" PRIu32 ", $%" PRIu32 ", %" PRIi16, t, s, (int16_t) imm);
+			iprintf("slti    $%u, $%u, %" PRIi16, t, s, (int16_t) imm);
 		return true;
 	case 0x0B:  // SLTIU RT, RS, IMM
-		siprintf(canon, "sltiu $%" PRIu32 ", $%" PRIu32 ", 0x%" PRIX16, t, s, imm);
 #if defined UNLIKELY_SHORT_FORMS
 		if (t == 0)  // Effectively a nop
-			strcpy(shrt, "nop");
+			iprintf("nop");
 		else if (s == 0 && imm == 0)  // Moving zero into RT
-			siprintf(shrt, "li $%" PRIu32 ", 0", t);
+			iprintf("li      $%u, 0", t);
 		else
 #endif
-			siprintf(shrt, "sltiu $%" PRIu32 ", $%" PRIu32 ", %" PRIi16, t, s, (int16_t) imm);
+			iprintf("sltiu   $%u, $%u, %" PRIi16, t, s, (int16_t) imm);
 		return true;
 	case 0x0C:  // ANDI RT, RS, IMM
-		siprintf(canon, "andi $%" PRIu32 ", $%" PRIu32 ", 0x%" PRIX16, t, s, imm);
 #if defined UNLIKELY_SHORT_FORMS
 		if (t == 0)  // Effectively a nop
-			strcpy(shrt, "nop");
+			iprintf("nop");
 		else if (imm == 0)  // Moving zero into RT
-			siprintf(shrt, "li $%" PRIu32 ", 0", t);
+			iprintf("li      $%u, 0", t);
 		else
 #endif
-			strcpy(shrt, canon);
+			iprintf("andi    $%u, $%u, 0x%" PRIX16, t, s, imm);
 		return true;
 	case 0x0D:  // ORI RT, RS, IMM
-		siprintf(canon, "ori $%" PRIu32 ", $%" PRIu32 ", 0x%" PRIX16, t, s, imm);
 #if defined UNLIKELY_SHORT_FORMS
 		if (t == 0 || (s == t && imm == 0))  // Effectively a nop
-			strcpy(shrt, "nop");
+			iprintf("nop");
 		else
 #endif
-		if (s == 0 && imm > 0)  // Loading [0, 32767] into RT
-			siprintf(shrt, "li $%" PRIu32 ", %" PRIi16, t, (int16_t) imm);
+		if (s == 0 && imm > 0)  // Loading [1, 65535] into RT
+			iprintf("li      $%u, %" PRIu16, t, imm);
 #if defined UNLIKELY_SHORT_FORMS
 		else if (imm == 0)  // Moving RS into RT
-			siprintf(shrt, "move $%" PRIu32 ", $%" PRIu32, t, s);
+			iprintf("move    $%u, $%u", t, s);
 		else
 #endif
-			strcpy(shrt, canon);
+			iprintf("ori     $%u, $%u, 0x%" PRIX16, t, s, imm);
 		return true;
 	case 0x0E:  // XORI RT, RS, IMM
-		siprintf(canon, "xori $%" PRIu32 ", $%" PRIu32 ", 0x%" PRIX16, t, s, imm);
 #if defined UNLIKELY_SHORT_FORMS
 		if (t == 0 || (s == t && imm == 0))  // Effectively a nop
-			strcpy(shrt, "nop");
+			iprintf("nop");
 		else if (s == 0 && imm >= 0)  // Loading [0, 32767] into RT
-			siprintf(shrt, "li $%" PRIu32 ", %" PRIi16, t, (int16_t) imm);
+			iprintf("li      $%u, %" PRIi16, t, (int16_t) imm);
 		else if (imm == 0)  // Moving RS into RT
-			siprintf(shrt, "move $%" PRIu32 ", $%" PRIu32, t, s);
+			iprintf("move    $%u, $%u", t, s);
 		else
 #endif
-			strcpy(shrt, canon);
+			iprintf("xori    $%u, $%u, 0x%" PRIX16, t, s, imm);
 		return true;
 	case 0x0F:  // LUI RT, IMM
-		siprintf(canon, "lui $%" PRIu32 ", 0x%" PRIX16, t, imm);
 #if defined UNLIKELY_SHORT_FORMS
 		if (t == 0)  // Effectively a nop
-			strcpy(shrt, "nop");
+			iprintf("nop");
 		else
 #endif
-			siprintf(shrt, "lui $%" PRIu32 ", %" PRIi16, t, imm);
+			iprintf("lui     $%u, %" PRIi16, t, imm);
 		return true;
 	case 0x14:  // BEQL RS, RT, PC+IMM+4
-		siprintf(canon, "beql $%" PRIu32 ", $%" PRIu32 ", 0x%08" PRIX32, s, t, rel_jump(loc, (int16_t) imm));
 #if defined UNLIKELY_SHORT_FORMS
 		if (s == t)  // Effectively an unconditional immediate jump
-			siprintf(shrt, "b 0x%08" PRIX32, rel_jump(loc, (int16_t) imm));
+			iprintf("b       0x%08" PRIX32, rel_jump(loc, (int16_t) imm));
 		else
 #endif
-			strcpy(shrt, canon);
+			iprintf("beql    $%u, $%u, 0x%08" PRIX32, s, t, rel_jump(loc, (int16_t) imm));
 		return true;
 	case 0x15:  // BNEL RS, RT, PC+IMM+4
-		siprintf(canon, "bnel $%" PRIu32 ", $%" PRIu32 ", 0x%08" PRIX32, s, t, rel_jump(loc, (int16_t) imm));
-		strcpy(shrt, canon);
+		iprintf("bnel    $%u, $%u, 0x%08" PRIX32, s, t, rel_jump(loc, (int16_t) imm));
 		return true;
 	case 0x16:  // BLEZL RS, PC+IMM+4
-		siprintf(canon, "blezl $%" PRIu32 ", 0x%08" PRIX32, s, rel_jump(loc, (int16_t) imm));
 #if defined UNLIKELY_SHORT_FORMS
 		if (s == 0)  // Effectively an unconditional immediate jump
-			siprintf(shrt, "b 0x%08" PRIX32, rel_jump(loc, (int16_t) imm));
+			iprintf("b       0x%08" PRIX32, rel_jump(loc, (int16_t) imm));
 		else
 #endif
-			strcpy(shrt, canon);
+			iprintf("blezl   $%u, 0x%08" PRIX32, s, rel_jump(loc, (int16_t) imm));
 		return true;
 	case 0x17:  // BGTZL RS, PC+IMM+4
-		siprintf(canon, "bgtzl $%" PRIu32 ", 0x%08" PRIX32, s, rel_jump(loc, (int16_t) imm));
-		strcpy(shrt, canon);
+		iprintf("bgtzl   $%u, 0x%08" PRIX32, s, rel_jump(loc, (int16_t) imm));
 		return true;
 	case 0x20:  // LB RT, IMM(RS)
-		siprintf(canon, "lb $%" PRIu32 ", 0x%" PRIX16 "($%" PRIu32 ")", t, imm, s);
-		siprintf(shrt, "lb $%" PRIu32 ", %" PRIi16 "($%" PRIu32 ")", t, (int16_t) imm, s);
+		iprintf("lb      $%u, %" PRIi16 "($%u)", t, (int16_t) imm, s);
 		return true;
 	case 0x21:  // LH RT, IMM(RS)
-		siprintf(canon, "lh $%" PRIu32 ", 0x%" PRIX16 "($%" PRIu32 ")", t, imm, s);
-		siprintf(shrt, "lh $%" PRIu32 ", %" PRIi16 "($%" PRIu32 ")", t, (int16_t) imm, s);
+		iprintf("lh      $%u, %" PRIi16 "($%u)", t, (int16_t) imm, s);
 		return true;
 	case 0x22:  // LWL RT, IMM(RS)
-		siprintf(canon, "lwl $%" PRIu32 ", 0x%" PRIX16 "($%" PRIu32 ")", t, imm, s);
-		siprintf(shrt, "lwl $%" PRIu32 ", %" PRIi16 "($%" PRIu32 ")", t, (int16_t) imm, s);
+		iprintf("lwl     $%u, %" PRIi16 "($%u)", t, (int16_t) imm, s);
 		return true;
 	case 0x23:  // LW RT, IMM(RS)
-		siprintf(canon, "lw $%" PRIu32 ", 0x%" PRIX16 "($%" PRIu32 ")", t, imm, s);
-		siprintf(shrt, "lw $%" PRIu32 ", %" PRIi16 "($%" PRIu32 ")", t, (int16_t) imm, s);
+		iprintf("lw      $%u, %" PRIi16 "($%u)", t, (int16_t) imm, s);
 		return true;
 	case 0x24:  // LBU RT, IMM(RS)
-		siprintf(canon, "lbu $%" PRIu32 ", 0x%" PRIX16 "($%" PRIu32 ")", t, imm, s);
-		siprintf(shrt, "lbu $%" PRIu32 ", %" PRIi16 "($%" PRIu32 ")", t, (int16_t) imm, s);
+		iprintf("lbu     $%u, %" PRIi16 "($%u)", t, (int16_t) imm, s);
 		return true;
 	case 0x25:  // LHU RT, IMM(RS)
-		siprintf(canon, "lhu $%" PRIu32 ", 0x%" PRIX16 "($%" PRIu32 ")", t, imm, s);
-		siprintf(shrt, "lhu $%" PRIu32 ", %" PRIi16 "($%" PRIu32 ")", t, (int16_t) imm, s);
+		iprintf("lhu     $%u, %" PRIi16 "($%u)", t, (int16_t) imm, s);
 		return true;
 	case 0x26:  // LWR RT, IMM(RS)
-		siprintf(canon, "lwr $%" PRIu32 ", 0x%" PRIX16 "($%" PRIu32 ")", t, imm, s);
-		siprintf(shrt, "lwr $%" PRIu32 ", %" PRIi16 "($%" PRIu32 ")", t, (int16_t) imm, s);
+		iprintf("lwr     $%u, %" PRIi16 "($%u)", t, (int16_t) imm, s);
 		return true;
 	case 0x28:  // SB RT, IMM(RS)
-		siprintf(canon, "sb $%" PRIu32 ", 0x%" PRIX16 "($%" PRIu32 ")", t, imm, s);
-		siprintf(shrt, "sb $%" PRIu32 ", %" PRIi16 "($%" PRIu32 ")", t, (int16_t) imm, s);
+		iprintf("sb      $%u, %" PRIi16 "($%u)", t, (int16_t) imm, s);
 		return true;
 	case 0x29:  // SH RT, IMM(RS)
-		siprintf(canon, "sh $%" PRIu32 ", 0x%" PRIX16 "($%" PRIu32 ")", t, imm, s);
-		siprintf(shrt, "sh $%" PRIu32 ", %" PRIi16 "($%" PRIu32 ")", t, (int16_t) imm, s);
+		iprintf("sh      $%u, %" PRIi16 "($%u)", t, (int16_t) imm, s);
 		return true;
 	case 0x2A:  // SWL RT, IMM(RS)
-		siprintf(canon, "swl $%" PRIu32 ", 0x%" PRIX16 "($%" PRIu32 ")", t, imm, s);
-		siprintf(shrt, "swl $%" PRIu32 ", %" PRIi16 "($%" PRIu32 ")", t, (int16_t) imm, s);
+		iprintf("swl     $%u, %" PRIi16 "($%u)", t, (int16_t) imm, s);
 		return true;
 	case 0x2B:  // SW RT, IMM(RS)
-		siprintf(canon, "sw $%" PRIu32 ", 0x%" PRIX16 "($%" PRIu32 ")", t, imm, s);
-		siprintf(shrt, "sw $%" PRIu32 ", %" PRIi16 "($%" PRIu32 ")", t, (int16_t) imm, s);
+		iprintf("sw      $%u, %" PRIi16 "($%u)", t, (int16_t) imm, s);
 		return true;
 	case 0x2E:  // SWR RT, IMM(RS)
-		siprintf(canon, "swr $%" PRIu32 ", 0x%" PRIX16 "($%" PRIu32 ")", t, imm, s);
-		siprintf(shrt, "swr $%" PRIu32 ", %" PRIi16 "($%" PRIu32 ")", t, (int16_t) imm, s);
+		iprintf("swr     $%u, %" PRIi16 "($%u)", t, (int16_t) imm, s);
 		return true;
 	case 0x30:  // LL RT, IMM(RS)
-		siprintf(canon, "ll $%" PRIu32 ", 0x%" PRIX16 "($%" PRIu32 ")", t, imm, s);
-		siprintf(shrt, "ll $%" PRIu32 ", %" PRIi16 "($%" PRIu32 ")", t, (int16_t) imm, s);
+		iprintf("ll      $%u, %" PRIi16 "($%u)", t, (int16_t) imm, s);
 		return true;
 	case 0x38:  // SC RT, IMM(RS)
-		siprintf(canon, "sc $%" PRIu32 ", 0x%" PRIX16 "($%" PRIu32 ")", t, imm, s);
-		siprintf(shrt, "sc $%" PRIu32 ", %" PRIi16 "($%" PRIu32 ")", t, (int16_t) imm, s);
+		iprintf("sc      $%u, %" PRIi16 "($%u)", t, (int16_t) imm, s);
 		return true;
 	default:
 		return false;
@@ -965,81 +873,73 @@ static bool disassemble_mips32_i(uint32_t op, uint32_t loc, char* shrt, char* ca
  * Returns true and fills both buffers if the instruction is defined.
  * Returns false if the instruction is undefined.
  */
-static bool disassemble_mips32_special2(uint32_t op, uint32_t loc, char* shrt, char* canon)
+static bool disassemble_mips32_special2(uint32_t op, uint32_t loc)
 {
-	uint32_t s = (op >> 21) & 0x1F,
+	unsigned int s = (op >> 21) & 0x1F,
 		t = (op >> 16) & 0x1F,
 		d = (op >> 11) & 0x1F,
 		op_min = op & 0x3F;
 	switch (op_min) {
 	case 0x00:  // MADD RS, RT
-		siprintf(canon, "madd $%" PRIu32 ", $%" PRIu32, s, t);
 #if defined UNLIKELY_SHORT_FORMS
 		if (s == 0 || t == 0)  // Effectively a nop
-			strcpy(shrt, "nop");
+			iprintf("nop");
 		else
 #endif
-			strcpy(shrt, canon);
+			iprintf("madd    $%u, $%u", s, t);
 		return true;
 	case 0x01:  // MADDU RS, RT
-		siprintf(canon, "maddu $%" PRIu32 ", $%" PRIu32, s, t);
 #if defined UNLIKELY_SHORT_FORMS
 		if (s == 0 || t == 0)  // Effectively a nop
-			strcpy(shrt, "nop");
+			iprintf("nop");
 		else
 #endif
-			strcpy(shrt, canon);
+			iprintf("maddu   $%u, $%u", s, t);
 		return true;
 	case 0x02:  // MUL RD, RS, RT
-		siprintf(canon, "mul $%" PRIu32 ", $%" PRIu32 ", $%" PRIu32, d, s, t);
 #if defined UNLIKELY_SHORT_FORMS
 		if (d == 0)  // Effectively a nop
-			strcpy(shrt, "nop");
+			iprintf("nop");
 		else if (s == 0 || t == 0)  // Moving zero into RD
-			siprintf(shrt, "li $%" PRIu32 ", 0", d);
+			iprintf("li      $%u, 0", d);
 		else
 #endif
-			strcpy(shrt, canon);
+			iprintf("mul     $%u, $%u, $%u", d, s, t);
 		return true;
 	case 0x04:  // MSUB RS, RT
-		siprintf(canon, "msub $%" PRIu32 ", $%" PRIu32, s, t);
 #if defined UNLIKELY_SHORT_FORMS
 		if (s == 0 || t == 0)  // Effectively a nop
-			strcpy(shrt, "nop");
+			iprintf("nop");
 		else
 #endif
-			strcpy(shrt, canon);
+			iprintf("msub    $%u, $%u", s, t);
 		return true;
 	case 0x05:  // MSUBU RS, RT
-		siprintf(canon, "msubu $%" PRIu32 ", $%" PRIu32, s, t);
 #if defined UNLIKELY_SHORT_FORMS
 		if (s == 0 || t == 0)  // Effectively a nop
-			strcpy(shrt, "nop");
+			iprintf("nop");
 		else
 #endif
-			strcpy(shrt, canon);
+			iprintf("msubu   $%u, $%u", s, t);
 		return true;
 	case 0x20:  // CLZ RD, RS
-		siprintf(canon, "clz $%" PRIu32 ", $%" PRIu32, d, s);
 #if defined UNLIKELY_SHORT_FORMS
 		if (d == 0)  // Effectively a nop
-			strcpy(shrt, "nop");
+			iprintf("nop");
 		else
 #endif
-			strcpy(shrt, canon);
+			iprintf("clz     $%u, $%u", d, s);
 		return true;
 	case 0x21:  // CLO RD, RS
-		siprintf(canon, "clo $%" PRIu32 ", $%" PRIu32, d, s);
 #if defined UNLIKELY_SHORT_FORMS
 		if (d == 0)  // Effectively a nop
-			strcpy(shrt, "nop");
+			iprintf("nop");
 		else
 #endif
-			strcpy(shrt, canon);
+			iprintf("clo     $%u, $%u", d, s);
 		return true;
 	case 0x3F:  // SDBBP imm20
-		siprintf(canon, "sdbbp 0x%" PRIX32, (op >> 6) & UINT32_C(0xFFFFF));
-		strcpy(shrt, canon);
+		iprintf("sdbbp   0x%" PRIX32, (op >> 6) & UINT32_C(0xFFFFF));
 		return true;
 	default:
 		return false;
@@ -1051,18 +951,16 @@ static bool disassemble_mips32_special2(uint32_t op, uint32_t loc, char* shrt, c
  * Returns true and fills both buffers if the instruction is defined.
  * Returns false if the instruction is undefined.
  */
-static bool disassemble_mips32_j(uint32_t op, uint32_t loc, char* shrt, char* canon)
+static bool disassemble_mips32_j(uint32_t op, uint32_t loc)
 {
-	uint32_t op_maj = (op >> 26) & 0x3F;
+	unsigned int op_maj = (op >> 26) & 0x3F;
 	uint32_t imm = (op >> 6) & UINT32_C(0x03FFFFFF);
 	switch (op_maj) {
 	case 0x02:  // J PCSeg4.IMM26.00
-		siprintf(canon, "j 0x%08" PRIX32, abs_jump(loc, imm));
-		strcpy(shrt, canon);
+		iprintf("j       0x%08" PRIX32, abs_jump(loc, imm));
 		return true;
 	case 0x03:  // JAL PCSeg4.IMM26.00
-		siprintf(canon, "jal 0x%08" PRIX32, abs_jump(loc, imm));
-		strcpy(shrt, canon);
+		iprintf("jal     0x%08" PRIX32, abs_jump(loc, imm));
 		return true;
 	default:
 		return false;
@@ -1080,32 +978,19 @@ void process_exception()
 
 	set_sub_text();
 	consoleClear();
-	iprintf("    - Supercard exception -\n%02" PRIX32 " %s\nat address %08" PRIX32 "\n",
+	iprintf("    - Supercard exception -\n%02" PRIX32 " %s\nat address %08" PRIX32 "\n\n",
 	       exception.excode, excode_desc(exception.excode), exception.c0_epc);
 
 	if (exception.mapped) {
-		char shrt[64], canon[64];
-
-		disassemble_mips32(exception.op, exception.c0_epc, shrt, canon);
-		iprintf("->   %s\n", shrt);
-		if (strcmp(shrt, canon) != 0) {
-			iprintf("   = %s\n", canon);
-		} else {
-			iprintf("\n");
-		}
-
-		disassemble_mips32(exception.next_op, exception.c0_epc + 4, shrt, canon);
-		iprintf("     %s\n", shrt);
-		if (strcmp(shrt, canon) != 0) {
-			iprintf("   = %s\n", canon);
-		} else {
-			iprintf("\n");
-		}
-		iprintf("\n");
+		iprintf("-> ");
+		disassemble_mips32(exception.op, exception.c0_epc);
+		iprintf("\n   ");
+		disassemble_mips32(exception.next_op, exception.c0_epc + 4);
+		iprintf("\n\n");
 	} else if ((exception.c0_epc & 3) != 0) {
-		iprintf("\n     (%08" PRIX32 " is unaligned)\n\n\n", exception.c0_epc);
+		iprintf("     (%08" PRIX32 " is unaligned)\n\n\n", exception.c0_epc);
 	} else {
-		iprintf("\n     (%08" PRIX32 " is unmapped)\n\n\n", exception.c0_epc);
+		iprintf("     (%08" PRIX32 " is unmapped)\n\n\n", exception.c0_epc);
 	}
 
 	for (i = 0; i < REG_COUNT; i++) {
