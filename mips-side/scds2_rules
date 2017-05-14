@@ -31,8 +31,14 @@ LDFLAGS        += -specs=$(SCDS2_TOOLS)/scds2.specs -L$(SCDS2_TOOLS)/lib -lgcc
 %.plg: %.dat
 	$(SCDS2_TOOLS)/tools/makeplug $< $@
 
+%.pak: %.flt
+	$(SCDS2_TOOLS)/tools/packer $< $@
+
 %.pak: %.dat
 	$(SCDS2_TOOLS)/tools/packer $< $@
+
+%.flt: %.dat
+	$(SCDS2_TOOLS)/tools/filter $< $@
 
 %.dat: %.elf
 	$(OBJCOPY) -x -O binary $< $@
