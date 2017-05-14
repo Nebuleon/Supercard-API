@@ -42,6 +42,7 @@ LDFLAGS        += -specs=$(SCDS2_TOOLS)/scds2.specs -L$(SCDS2_TOOLS)/lib -lgcc
 
 %.dat: %.elf
 	$(OBJCOPY) -x -O binary $< $@
+	chmod a-x $@
 
 %.elf:
 	$(LD) $(LDFLAGS) $^ $(LIBPATHS) $(LIBS) -o $@

@@ -29,6 +29,7 @@ LIBS           += -lgcc -lds2
 
 %.dat: %.elf
 	$(OBJCOPY) -x -O binary $< $@
+	chmod a-x $@
 
 %.elf:
 	$(LD) $(LDFLAGS) $^ $(LIBPATHS) $(LIBS) -o $@
