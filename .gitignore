@@ -6,3 +6,5 @@ arm-side/arm7/build/
 arm-side/arm9/build/
 mips-side/toolsrc/packer/packer
 mips-side/toolsrc/unpacker/unpacker.dat
+mips-side/toolsrc/filter/filter
+mips-side/toolsrc/unfilter/unfilter.dat

@@ -18,6 +18,8 @@ libsrc:
 toolsrc: libsrc
 	$(MAKE) -C toolsrc/unpacker
 	$(MAKE) -C toolsrc/packer
+	$(MAKE) -C toolsrc/unfilter
+	$(MAKE) -C toolsrc/filter
 
 install: all
 	cp -a scds2_start.S scds2_start.o scds2_rules scds2.specs scds2.ld Makefile $(SCDS2_TOOLS)
@@ -28,6 +30,8 @@ install: all
 	$(MAKE) -C libsrc install
 	$(MAKE) -C toolsrc/unpacker install
 	$(MAKE) -C toolsrc/packer install
+	$(MAKE) -C toolsrc/unfilter install
+	$(MAKE) -C toolsrc/filter install
 
 clean:
 	rm scds2_start.o
@@ -35,3 +39,5 @@ clean:
 	$(MAKE) -C libsrc clean
 	$(MAKE) -C toolsrc/unpacker clean
 	$(MAKE) -C toolsrc/packer clean
+	$(MAKE) -C toolsrc/unfilter clean
+	$(MAKE) -C toolsrc/filter clean
