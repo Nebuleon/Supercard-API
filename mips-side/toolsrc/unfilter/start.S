@@ -37,9 +37,7 @@
     .extern  __heap_start
     .extern  __heap_end
     .extern  _heap_init
-    .extern  malloc
-    .extern  main
-    .extern  free
+    .extern  entry
 
     .ent     _start
     .global  _start
@@ -123,26 +121,11 @@ _start:
     jal     _heap_init
     addiu   a1, a1, %lo(__heap_end)    # (delay slot)
 
-    /* Call int main(int argc, char** argv). */
-    jal     malloc
-    ori     a0, zero, 4                # temp = malloc(4)
+    /* Call int entry(void). */
+    jal     entry
+    nop                                # cannot delay usefully here
 
-    beq     v0, zero, exit_fail        # if (temp == NULL) goto exit_fail
-    or      s0, v0, zero               # (delay slot) main() will preserve this
-
-    or      a1, v0, zero               # argv = temp
-
-    /* "The value of argv[argc] shall be 0." - C99 */
-    sw      zero, 0(v0)                # argv[argc] = 0
-
-    jal     main
-    or      a0, zero, zero             # (delay slot) argc = 0
-
-    or      s1, v0, zero               # grab the return value from main()
-    jal     free
-    or      a0, s0, zero               # (delay slot) free(argv)
-
-    bne     s1, zero, exit_fail
+    bne     v0, zero, exit_fail
     # This BNE has a harmless delay slot from below.
 
     /* Write back and invalidate both caches. */

@@ -29,7 +29,7 @@ uint32_t unpacked_size __attribute__((section(".noinit")));
 /* Symbol provided by the linker, at the end of all data sections */
 extern Bytef packed_data[];
 
-int main(int argc, char** argv)
+int entry(void)
 {
 	z_stream stream;
 	int ret = EXIT_SUCCESS, z_result;

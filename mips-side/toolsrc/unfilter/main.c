@@ -320,7 +320,7 @@ static uint32_t decode_rt_imm16(const void** streams)
 	return ret;
 }
 
-int main(int argc, char** argv)
+int entry(void)
 {
 	/* Pointer to the next instruction or data word to be written. */
 	uint32_t* output = (uint32_t*) 0x80002000;
