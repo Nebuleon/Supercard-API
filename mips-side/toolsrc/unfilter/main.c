@@ -328,6 +328,8 @@ int entry(void)
 	/* Pointers to the next items to be read from each of the streams coming
 	 * from the filter. */
 	const void* streams[STRM_COUNT];
+	/* A copy of the opcode stream, which is used only in this function. */
+	const uint8_t* op_bytes;
 	size_t i;
 
 	for (i = 0; i < STRM_COUNT; i++) {
@@ -336,8 +338,9 @@ int entry(void)
 			+ input_words[i] /* stream offset, in bytes, stored in a word */;
 	}
 
-	for (i = 0; i < instruction_count; i++) {
-		const uint8_t* op_bytes = streams[STRM_OPCODES];
+	op_bytes = streams[STRM_OPCODES];
+
+	for (i = instruction_count; i > 0; i--) {
 		unsigned int op = 0, end = OP_COUNT - 1;
 		size_t byte = 0;
 
@@ -348,7 +351,6 @@ int entry(void)
 			end >>= 8;
 		}
 
-		streams[STRM_OPCODES] = op_bytes;
 		*output++ = ops[op].opcode | ops[op].decode(streams);
 	}
 
