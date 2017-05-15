@@ -337,16 +337,18 @@ int entry(void)
 	}
 
 	for (i = 0; i < instruction_count; i++) {
+		const uint8_t* op_bytes = streams[STRM_OPCODES];
 		enum flat_op op = 0, end = OP_COUNT - 1;
 		size_t byte = 0;
 
+		/* If more than one byte was needed to encode the flat_op, decode
+		 * more bytes; the result is little-endian. */
 		while (end != 0) {
-			const uint8_t* op_bytes = streams[STRM_OPCODES];
 			op |= *op_bytes++ << (byte++ * 8);
-			streams[STRM_OPCODES] = op_bytes;
 			end >>= 8;
 		}
 
+		streams[STRM_OPCODES] = op_bytes;
 		*output++ = ops[op].opcode | ops[op].decode(streams);
 	}
 
@@ -355,7 +357,7 @@ int entry(void)
 	const uint8_t* input_bytes = streams[STRM_COUNT - 1];
 	if ((uintptr_t) input_bytes & 3) {
 		/* Make sure this is aligned. */
-		input_bytes += (((uintptr_t) input_bytes & 3) ^ 3) + 1;
+		input_bytes += 4 - ((uintptr_t) input_bytes & 3);
 	}
 	memcpy(output, input_bytes, (filtered_data + filtered_size) - input_bytes);
 
