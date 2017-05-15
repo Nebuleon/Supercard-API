@@ -393,7 +393,7 @@ static bool dispatch(const struct op_desc* desc, uint32_t opcode)
 		if (desc->flat_op != OP_NONE) {
 			/* If more than one byte is needed to encode the flat_op, encode
 			 * it with more bytes; the result is little-endian. */
-			enum flat_op flat_op = desc->flat_op, end = OP_COUNT - 1;
+			unsigned int flat_op = desc->flat_op, end = OP_COUNT - 1;
 			while (end != 0) {
 				if (!output_u8(STRM_OPCODES, (uint8_t) flat_op)) return false;
 				end >>= 8;

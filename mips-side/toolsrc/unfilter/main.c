@@ -338,7 +338,7 @@ int entry(void)
 
 	for (i = 0; i < instruction_count; i++) {
 		const uint8_t* op_bytes = streams[STRM_OPCODES];
-		enum flat_op op = 0, end = OP_COUNT - 1;
+		unsigned int op = 0, end = OP_COUNT - 1;
 		size_t byte = 0;
 
 		/* If more than one byte was needed to encode the flat_op, decode
