@@ -68,35 +68,8 @@ _start:
     li      t0, 0x00400000
     mtc0    t0, C0_Status
 
-    /* Initialise the cache */
-    # For each index at 0x8000_0000 + 16 KiB (cache size), write an empty
-    # cache tag to the data cache and the instruction cache.
-    # Important: 0x8000_0000 is not mapped through the MMU. Virtual addresses
-    # can raise exceptions if they're not mapped.
-    li      t0, 0x80000000
-    ori     t1, t0, 0x4000
-    mtc0    zero, C0_TagLo
-    mtc0    zero, C0_TagLo, 2
-    mtc0    zero, C0_TagHi
-    mtc0    zero, C0_TagHi, 2
-
-1:  cache   DCIndexStTag, 0(t0)
-    cache   ICIndexStTag, 0(t0)
-    bne     t0, t1, 1b
-    addiu   t0, t0, 0x20               # cache lines are 32 bytes
-
-    sync
-
-    # Enable the use of the cache for accesses through KSEG0.
-    li      t0, 3
-    mtc0    t0, C0_Config
-
-    /* Invalidate the BTB */
-    mfc0    t0, C0_Config, 7
-    nop
-    ori     t0, t0, 0x2
-    mtc0    t0, C0_Config, 7
-    nop
+    /* Since we are executing from 0x8000_2000, the caches must be initialised
+     * already, so skip that initialisation. */
 
     # Initialise the address used by DS2_StartAwait.
     lui     t7, 0x8000
