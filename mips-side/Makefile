@@ -34,8 +34,8 @@ install: all
 	$(MAKE) -C toolsrc/filter install
 
 clean:
-	rm scds2_start.o
-	rm -rf lib
+	-rm scds2_start.o
+	-rm -rf lib
 	$(MAKE) -C libsrc clean
 	$(MAKE) -C toolsrc/unpacker clean
 	$(MAKE) -C toolsrc/packer clean
