@@ -10,7 +10,7 @@ endif
 all: scds2_start.o libsrc toolsrc
 
 scds2_start.o: scds2_start.S
-	$(SCDS2_TOOLCHAIN)/bin/mipsel-scds2-elf-gcc -g -Iinclude -c $< -o $@
+	$(SCDS2_TOOLCHAIN)/bin/mipsel-scds2-elf-gcc -g -Iinclude -D__ASSEMBLY__ -c $< -o $@
 
 libsrc:
 	$(MAKE) -C libsrc
