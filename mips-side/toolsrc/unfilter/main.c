@@ -320,7 +320,8 @@ static uint32_t decode_rt_imm16(const void** streams)
 	return ret;
 }
 
-int entry(void)
+/* Returns the address just past the last written word, or 0 on failure. */
+void* entry(void)
 {
 	/* Pointer to the next instruction or data word to be written. */
 	uint32_t* output = (uint32_t*) 0x80002000;
@@ -363,5 +364,5 @@ int entry(void)
 	}
 	memcpy(output, input_bytes, (filtered_data + filtered_size) - input_bytes);
 
-	return EXIT_SUCCESS;
+	return (uint8_t*) output + ((filtered_data + filtered_size) - input_bytes);
 }

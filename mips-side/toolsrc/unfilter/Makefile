@@ -46,7 +46,7 @@ TARGET   := $(NAME).dat
 
 INCLUDES := -I.
 
-CFLAGS   += -Wall -O2 -fomit-frame-pointer -ffunction-sections \
+CFLAGS   += -Wall -Os -fomit-frame-pointer -ffunction-sections \
             $(INCLUDES)
 
 ASFLAGS  += $(INCLUDES)
