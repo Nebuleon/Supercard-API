@@ -17,18 +17,26 @@
  * along with it.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include <stdbool.h>
-#include <stdint.h>
-#include "except.h"
+#include <ds2/except.h>
 
-__attribute__((weak))
-int _syscall_handler(uint32_t syscode, const struct _register_block* registers)
+exception_handler _exception_handlers[32];
+
+void* _exception_data[32];
+
+extern void _c_exception_save(void);
+
+void DS2_SetExceptionHandler(unsigned int excode, exception_handler handler, void* data)
 {
-	return 0;
+	if (excode < 32) {
+		_exception_handlers[excode] = handler;
+		_exception_data[excode] = data;
+	}
 }
 
-__attribute__((weak))
-bool _exception_handler(uint32_t excode, const struct _register_block* registers)
+void DS2_SetCExceptionHandler(unsigned int excode, c_exception_handler handler)
 {
-	return false;
+	if (excode < 32) {
+		_exception_handlers[excode] = _c_exception_save;
+		_exception_data[excode] = handler;
+	}
 }

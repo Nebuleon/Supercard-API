@@ -18,27 +18,29 @@
 */
 
 #include "mips.h"
+#include <ds2/except.h>
 
     .text
     .set     noreorder
     .set     noat
 
-    .extern  _ds2_init
-    .extern  _ds2_init_fs
-    .extern  _ds2_ds_init
+    .extern  _gp
+    .extern  __stack
+    .extern  __bss_start
+    .extern  __bss_end
+    .extern  __heap_start
+    .extern  __heap_end
     .extern  _heap_init
+    .extern  _ds2_init
+    .extern  _ds2_ds_init
+    .extern  _ds2_init_fs
     .extern  malloc
     .extern  main
     .extern  free
     .extern  exit
-    .extern  _gp
-    .extern  __all_end
-    .extern  __bss_start
-    .extern  __bss_end
+    .extern  _exception_handlers
+    .extern  _unhandled_exception_save
     .extern  _irq_handler
-    .extern  _exception_handler
-    .extern  _unhandled_exception
-    .extern  _syscall_handler
 
     .ent     _start
     .global  _start
@@ -49,8 +51,12 @@ _start:
     mtc0    zero, C0_WatchLo           # reset hardware watchpoints
     mtc0    zero, C0_WatchHi
 
+    # In 0x00800000:
+    # Bit 23 = 1: Special interrupt vector (0x8000_0200)
+    # Bit 22 = 0: No Watch exception pending
+    # Bits 9..8 = 00: No software interrupts pending
     li      t1, 0x00800000
-    mtc0    t1, C0_Cause               # reset interrupts
+    mtc0    t1, C0_Cause
 
     # In 0x00400000:
     # Bits 31..28 = 0000: Disable access to all coprocessors in user mode
@@ -131,37 +137,108 @@ exit_fail:
     .end     _start
 
 
-    .extern  exception_entry
+    .ent     _tlb_refill_vector
+    .global  _tlb_refill_vector
+    .global  _tlb_refill_vector_end
+    .type    _tlb_refill_vector,@function
 
-    .ent     _exception_jump
-    .global  _exception_jump
-    .type    _exception_jump,@function
+_tlb_refill_vector:
+    /* Copied to 0x8000_0000. Next up is: the cache error vector
+     * (0x8000_0100). */
 
-    /* _ds2_init will copy 0x10 bytes (4 instructions) from here into
-     * 3 locations: 0x8000_0000, 0x8000_0180 and 0x8000_0200. */
-_exception_jump:
-    j       exception_entry
+    la      k0, _exception_handlers + EXCODE_TLB_REFILL << 2
+    lw      k0, 0(k0)
+    beq     k0, zero, tlb_refill_unhandled
+    li      k1, EXCODE_TLB_REFILL
+
+    # Here, there was a handler.
+    jr      k0
     nop                                # cannot delay usefully here
-    nop                                # pad the bytes to be copied
-    nop
 
-    .end     _exception_jump
+tlb_refill_unhandled:
+    j       _unhandled_exception_save
+    nop                                # cannot delay usefully here
+
+_tlb_refill_vector_end:
+
+    .end     _tlb_refill_vector
 
 
-    .ent     exception_entry
-    .global  exception_entry
-    .type    exception_entry,@function
+    .ent     _cache_error_vector
+    .global  _cache_error_vector
+    .global  _cache_error_vector_end
+    .type    _cache_error_vector,@function
 
-exception_entry:
+_cache_error_vector:
+    /* Copied to 0x8000_0100, run at 0xA000_0100. Next up is: the general
+     * exception vector (0x8000_0180). */
+
+    la      k0, _exception_handlers + EXCODE_CACHE_ERROR << 2
+    lw      k0, 0(k0)
+    beq     k0, zero, cache_error_unhandled
+    li      k1, EXCODE_CACHE_ERROR
+
+    # Here, there was a handler.
+    jr      k0
+    nop                                # cannot delay usefully here
+
+cache_error_unhandled:
+    j       _unhandled_exception_save
+    nop                                # cannot delay usefully here
+
+_cache_error_vector_end:
+
+    .end     _cache_error_vector
+
+    .ent     _general_exception_vector
+    .global  _general_exception_vector
+    .global  _general_exception_vector_end
+    .type    _general_exception_vector,@function
+
+_general_exception_vector:
+    /* Copied to 0x8000_0180. Next up is: the interrupt vector (0x8000_0200). */
+
+    mfc0    k1, C0_Cause
+    la      k0, _exception_handlers
+    andi    k1, k1, 0x1F << 2          # no shifting needed to get a function
+    addu    k0, k0, k1                 #   pointer for dispatch
+    lw      k0, 0(k0)
+    beq     k0, zero, general_exception_unhandled
+    nop                                # cannot delay usefully here
+
+    # Here, there was a handler.
+    jr      k0
+    nop                                # cannot delay usefully here
+
+general_exception_unhandled:
+    j       _unhandled_exception_save
+    nop                                # cannot delay usefully here
+
+_general_exception_vector_end:
+
+    .end     _general_exception_vector
+
+
+    .ent     _interrupt_vector
+    .global  _interrupt_vector
+    .global  _interrupt_vector_end
+    .type    _interrupt_vector,@function
+
+_interrupt_vector:
+    /* Copied to 0x8000_0200. Next up is: the kernel stack (0x8000_1FE0, going
+     * down). */
     # Prepare the switch to the kernel stack. There's the pointer for
     # DS2_StartAwait at 0x8000_1FFC.
-    la      k0, 0x80001FE0 - 160
-    sw      sp,  120(k0)               # Store the old stack pointer
+    la      k0, 0x80001FE0 - 104
+    pref    30,    8(k0)               # PrepareForStore: clear cache lines
+    pref    30,   40(k0)               # without loading their data from RAM
+    pref    30,   72(k0)
+    sw      sp,   84(k0)               # Store the old stack pointer
     or      sp, k0, zero               # Change to the new one
     # These are the least likely to have been loaded by LB[U]/LH[U]/LW before
     # the code was interrupted. Save them first to give more time for any
     # loads of the others to complete.
-    sw      $31, 128(sp)
+    sw      $31,  88(sp)
 
     sw      $1,   16(sp)
     sw      $2,   20(sp)
@@ -178,28 +255,16 @@ exception_entry:
     sw      $13,  64(sp)
     sw      $14,  68(sp)
     sw      $15,  72(sp)
-    # The code below may save $16-$23 (s0-s7), $28 (gp) and $30 (fp).
-    # Comments will have rationales.
-    sw      $24, 108(sp)
-    sw      $25, 112(sp)
-
-    mfc0    t4, C0_Cause
-    mfc0    t5, C0_Status
-    mfc0    t6, C0_EPC
+    sw      $24,  76(sp)
+    sw      $25,  80(sp)
 
     # These instructions are now very far away from anything that could have
     # caused writes to HI and LO.
     mfhi    t0                         # [while MFC0s run]
     mflo    t1
-    sw      t5,  140(sp)               # [while MFHI/MFLO run]
-    sw      t6,  144(sp)
 
-    andi    t4, t4, 0x1F << 2
-    sw      t0,  132(sp)               # save HI
-    bne     t4, zero, is_exc_or_syscall
-    sw      t1,  136(sp)               # (delay slot) save LO
-
-    # - - - TAKING AN INTERRUPT - - -
+    sw      t0,   92(sp)               # save HI
+    sw      t1,   96(sp)               # save LO
 
     # Saved registers don't need to be saved. We are calling a C function that
     # will preserve their values for the caller (= this code right here). Even
@@ -212,25 +277,19 @@ exception_entry:
     jal     _irq_handler
     nop                                # cannot delay usefully here
 
-    lw      t4,  144(sp)
-    lw      t5,  140(sp)
-
     # Code may be awaiting a certain condition to happen at the end of an
     # interrupt (see DS2_StartAwait).
     lui     t7, 0x8000                 # [while LW t4 and t5 run]
     lw      t6, 0x1FFC(t7)
-    mtc0    t4, C0_EPC                 # [while LW t6 runs]
     bne     t6, zero, ret_to_await
-    mtc0    t5, C0_Status              # (delay slot)
+    lw      sp,   84(k0)               # (delay slot) restore stack regardless
 
-restore_gprs:
     # These are the most likely to be needed immediately. Load them first to
     # give the loads more time to complete before returning to the code that
     # was interrupted.
-    lw      $31, 128(k0)
-    lw      sp,  120(k0)
+    lw      $31,  88(k0)
 
-    lw      k1,  132(k0)               # load HI
+    lw      k1,   92(k0)               # load HI
     lw      $1,   16(k0)
     lw      $2,   20(k0)
     lw      $3,   24(k0)
@@ -241,7 +300,7 @@ restore_gprs:
     mthi    k1
     lw      $8,   44(k0)
     lw      $9,   48(k0)
-    lw      k1,  136(k0)               # load LO
+    lw      k1,   96(k0)               # load LO
     lw      $10,  52(k0)
     lw      $11,  56(k0)
     lw      $12,  60(k0)
@@ -251,83 +310,26 @@ restore_gprs:
     # Don't restore $16-$23 (s0-s7), $28 (gp) or $30 (fp), because they were
     # saved by the exception handler's callees.
     mtlo    k1
-    lw      $24, 108(k0)
-    lw      $25, 112(k0)
+    lw      $24,  76(k0)
+    lw      $25,  80(k0)
+
+    # These values will never be needed again, both by kernel code and by user
+    # code. To avoid user code needing to write them back, even when it's only
+    # reading memory and evicting one of our dirty lines, invalidate them. The
+    # DCHitInv encoding is optional, but we're only using it for optimisation.
+    cache   DCHitInv,  8(k0)
+    cache   DCHitInv, 40(k0)
+    cache   DCHitInv, 72(k0)
 
     eret
 
 ret_to_await:
     # Here, we have code that is awaiting a condition.
     # None of the GPRs' values matter.
-    lw      sp,  120(k0)
     mtc0    t6, C0_EPC
+
     eret
 
-is_exc_or_syscall:
-    # Add $16-$23 (s0-s7), $28 (gp) and $30 (fp) to the register save block,
-    # even if they're callee-saved, because the exception or system call
-    # handler will look at them.
-    sw      $16,  76(sp)
-    sw      $17,  80(sp)
-    sw      $18,  84(sp)
-    sw      $19,  88(sp)
-    sw      $20,  92(sp)
-    sw      $21,  96(sp)
-    sw      $22, 100(sp)
-    sw      $23, 104(sp)
-    sw      $28, 116(sp)
-    sw      $30, 124(sp)
+_interrupt_vector_end:
 
-    ori     t3, zero, 0x08 << 2        # 0x08 = SYSCALL exception number
-    bne     t4, t3, is_exc             # it's not a SYSCALL?
-    # Provide the called function with the saved register block (at 'sp' +
-    # 16, size of the argument area) as argument 2 in either case.
-    addiu   a1, sp, 16                 # (delay slot)
-
-    # - - - TAKING A SYSTEM CALL - - -
-    # SYSCALL has the system call number in the instruction word. Load it and
-    # parse it out.
-    lw      a0, 0(t6)                  # t6 = C0_EPC
-    sll     a0, a0, 6                  # a0 = SYSCALL code; kill bits 26..31
-    jal     _syscall_handler
-    srl     a0, a0, 12                 # (delay slot) then kill bits 0..5
-
-    lw      t4,  140(sp)
-    lw      t5,  136(sp)
-    addiu   t4, t4, 4                  # return at EPC + 4, after SYSCALL
-    mtc0    t4, C0_EPC
-    b       restore_gprs
-    mtc0    t5, C0_Status              # (delay slot)
-
-is_exc:
-    # - - - TAKING AN EXCEPTION - - -
-    jal     _exception_handler
-    srl     a0, t4, 2                  # (delay slot) with the exception code as argument 1
-
-    # Check the return value to see if the exception was handled.
-    beq     v0, zero, exc_unhandled
-    nop                                # cannot delay usefully here
-
-    # Here, it was handled.
-    lw      t4,  140(sp)
-    lw      t5,  136(sp)
-    mtc0    t4, C0_EPC
-    b       restore_gprs
-    mtc0    t5, C0_Status              # (delay slot)
-
-exc_unhandled:
-    # Here, the exception was NOT handled. Since the code that will send the
-    # exception report to the DS needs to run with interrupts enabled, we set
-    # EPC to its address and return from exception.
-    # The function will run in the normal non-exception level with the saved
-    # register block intact, but the values are not in the MIPS registers as
-    # their values no longer matter.
-    mfc0    t4, C0_Cause
-    la      t6, _unhandled_exception
-    mtc0    t6, C0_EPC
-    andi    t4, t4, 0x1F << 2
-    srl     a0, t4, 2                  # with the exception code as argument 1
-    addiu   a1, sp, 16                 # and the saved registers as argument 2
-    eret
-
-    .end exception_entry
+    .end     _interrupt_vector

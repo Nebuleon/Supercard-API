@@ -17,6 +17,7 @@
  * along with it.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+#include <stdint.h>
 #include <string.h>
 
 #include <asm/cachectl.h>
@@ -32,14 +33,15 @@
 #include "pm.h"
 #include "sys_time.h"
 
-#define EXCEPTION_HANDLER_LEN 0x10
-
 typedef void (*pfunc) (void);
 
 extern pfunc __CTOR_LIST__[];
 extern pfunc __CTOR_END__[];
 
-extern void _exception_jump(void);
+extern uint8_t _tlb_refill_vector, _tlb_refill_vector_end;
+extern uint8_t _cache_error_vector, _cache_error_vector_end;
+extern uint8_t _general_exception_vector, _general_exception_vector_end;
+extern uint8_t _interrupt_vector, _interrupt_vector_end;
 
 static void run_constructors(void)
 {
@@ -52,19 +54,34 @@ static void run_constructors(void)
 
 void _ds2_init(void)
 {
-	/* Copy the exception handler at the proper locations. Only the first few
-	 * instructions are copied. */
-	memcpy((void*) A_K0BASE, (void*) _exception_jump, EXCEPTION_HANDLER_LEN);
-	dcache_writeback_range((void*) A_K0BASE, EXCEPTION_HANDLER_LEN);
-	icache_invalidate_range((void*) A_K0BASE, EXCEPTION_HANDLER_LEN);
+	/* Copy the exception handlers to their proper locations. */
+	memcpy((void*) A_K0BASE, &_tlb_refill_vector,
+		&_tlb_refill_vector_end - &_tlb_refill_vector);
+	dcache_writeback_range((void*) A_K0BASE,
+		&_tlb_refill_vector_end - &_tlb_refill_vector);
+	icache_invalidate_range((void*) A_K0BASE,
+		&_tlb_refill_vector_end - &_tlb_refill_vector);
 
-	memcpy((void*) (A_K0BASE + 0x180), (void*) _exception_jump, EXCEPTION_HANDLER_LEN);
-	dcache_writeback_range((void*) (A_K0BASE + 0x180), EXCEPTION_HANDLER_LEN);
-	icache_invalidate_range((void*) (A_K0BASE + 0x180), EXCEPTION_HANDLER_LEN);
+	memcpy((void*) (A_K0BASE + 0x100), &_cache_error_vector,
+		&_cache_error_vector_end - &_cache_error_vector);
+	dcache_writeback_range((void*) (A_K0BASE + 0x100),
+		&_cache_error_vector_end - &_cache_error_vector);
+	icache_invalidate_range((void*) (A_K0BASE + 0x100),
+		&_cache_error_vector_end - &_cache_error_vector);
 
-	memcpy((void*) (A_K0BASE + 0x200), (void*) _exception_jump, EXCEPTION_HANDLER_LEN);
-	dcache_writeback_range((void*) (A_K0BASE + 0x200), EXCEPTION_HANDLER_LEN);
-	icache_invalidate_range((void*) (A_K0BASE + 0x200), EXCEPTION_HANDLER_LEN);
+	memcpy((void*) (A_K0BASE + 0x180), &_general_exception_vector,
+		&_general_exception_vector_end - &_general_exception_vector);
+	dcache_writeback_range((void*) (A_K0BASE + 0x180),
+		&_general_exception_vector_end - &_general_exception_vector);
+	icache_invalidate_range((void*) (A_K0BASE + 0x180),
+		&_general_exception_vector_end - &_general_exception_vector);
+
+	memcpy((void*) (A_K0BASE + 0x200), &_interrupt_vector,
+		&_interrupt_vector_end - &_interrupt_vector);
+	dcache_writeback_range((void*) (A_K0BASE + 0x200),
+		&_interrupt_vector_end - &_interrupt_vector);
+	icache_invalidate_range((void*) (A_K0BASE + 0x200),
+		&_interrupt_vector_end - &_interrupt_vector);
 
 	_clock_init();
 	/* DS2_*ClockSpeed() or _detect_clock() must be called here to

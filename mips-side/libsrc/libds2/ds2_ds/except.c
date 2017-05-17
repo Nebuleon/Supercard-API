@@ -20,7 +20,7 @@
 #include <ds2/pm.h>
 #include <stdint.h>
 
-#include "../except.h"
+#include "except.h"
 #include "../intc.h"
 #include "card_protocol.h"
 #include "globals.h"
