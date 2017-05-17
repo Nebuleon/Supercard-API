@@ -30,6 +30,10 @@
 #define CHUNK_STATUS_USED UINT32_C(0x0000AA55)
 #define MALLOC_ALIGNMENT 8  /* must be a power of two */
 
+#define ROUND_UP(n, a) ( ((n) + (a) - 1) & ~((a) - 1) )
+#define ROUND_UP_PTR(p, a) ((void*) ( ((uintptr_t) (p) + (a) - 1) & ~((uintptr_t) (a) - 1) ))
+#define ROUND_DOWN_PTR(p, a) ((void*) ( ((uintptr_t) (a)) & ~((uintptr_t) (a) - 1) ))
+
 enum half {
 	/* Refers to the half with the lowest address of a split chunk. */
 	FIRST,
@@ -148,10 +152,8 @@ static struct chunk* split(struct chunk* chunk, size_t n, enum half half)
 
 void _heap_init(uint8_t* start, uint8_t* end)
 {
-	/* Align 'start' to the next full word. */
-	start += (4 - ((uintptr_t) start & 0x3)) & 0x3;
-	/* Align 'end' to the previous full word. */
-	end -= (uintptr_t) end & 0x3;
+	start = ROUND_UP_PTR(start, 4);
+	end = ROUND_DOWN_PTR(end, 4);
 	heap_size = end - start;
 	first_chunk = (struct chunk*) start;
 	first_chunk->prev = first_chunk->next = NULL;
@@ -172,7 +174,7 @@ void* memalign(size_t alignment, size_t n)
 	if (alignment < sizeof(void*))
 		alignment = sizeof(void*);
 
-	n = (n + (MALLOC_ALIGNMENT - 1)) & ~(MALLOC_ALIGNMENT - 1);
+	n = ROUND_UP(n, MALLOC_ALIGNMENT);
 
 	chunk = first_chunk;
 
@@ -188,13 +190,12 @@ void* memalign(size_t alignment, size_t n)
 				 *        /                     \
 				 * [chunk]  free  [SECOND CHUNK] [new allocation]
 				 *        <->| aligned          | ALIGNED */
-				uint8_t* data = data_for(chunk);
-				uint8_t* data_2 = data + sizeof(struct chunk);
-				/* To avoid creating a free chunk of size 0, add these bytes
-				 * regardless of whether the new data_2 was already aligned. */
-				data_2 += alignment - (((uintptr_t) data_2) & (alignment - 1));
-				if (chunk->size >= n + (data_2 - data)) {
-					chunk = split(chunk, (data_2 - data) - sizeof(chunk), SECOND);
+				uint8_t* unaligned = data_for(chunk);
+				/* To avoid creating a free chunk of size 0, round the end of
+				 * the header up regardless of whether it would be aligned. */
+				uint8_t* aligned = ROUND_UP_PTR(unaligned + sizeof(struct chunk), alignment);
+				if (chunk->size >= n + (aligned - unaligned)) {
+					chunk = split(chunk, (aligned - unaligned) - sizeof(chunk), SECOND);
 					return data_for(newly_used(split(chunk, n, FIRST)));
 				}
 			} else {
@@ -228,7 +229,7 @@ void* realloc(void* data, size_t n)
 		return NULL;
 	}
 
-	n = (n + (MALLOC_ALIGNMENT - 1)) & ~(MALLOC_ALIGNMENT - 1);
+	n = ROUND_UP(n, MALLOC_ALIGNMENT);
 
 	chunk = header_for(data);
 

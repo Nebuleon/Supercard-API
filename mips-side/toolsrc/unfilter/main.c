@@ -24,6 +24,8 @@
 #include "../common/filter_streams.h"
 #include "../common/filter_ops.h"
 
+#define ROUND_UP_CONST_PTR(p, a) ((const void*) ( ((uintptr_t) (p) + (a) - 1) & ~((uintptr_t) (a) - 1) ))
+
 /* Set by start.S, which is in turn written by the filterer in the first four
  * instructions of the unfilterer */
 uint32_t filtered_size __attribute__((section(".noinit")));
@@ -356,12 +358,8 @@ void* entry(void)
 	}
 
 	/* After instructions are done, the last stream is advanced to the start
-	 * of the data segment. */
-	const uint8_t* input_bytes = streams[STRM_COUNT - 1];
-	if ((uintptr_t) input_bytes & 3) {
-		/* Make sure this is aligned. */
-		input_bytes += 4 - ((uintptr_t) input_bytes & 3);
-	}
+	 * of the data segment. Make sure that's aligned in the input. */
+	const uint8_t* input_bytes = ROUND_UP_CONST_PTR(streams[STRM_COUNT - 1], 4);
 	memcpy(output, input_bytes, (filtered_data + filtered_size) - input_bytes);
 
 	return (uint8_t*) output + ((filtered_data + filtered_size) - input_bytes);
