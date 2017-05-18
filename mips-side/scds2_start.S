@@ -94,9 +94,9 @@ _start:
 
     /* Initialise the heap for malloc, realloc and free. */
     la      a0, __heap_start
-    la      a1, __heap_end
+    lui     a1, %hi(__heap_end)
     jal     _heap_init
-    nop                                # cannot delay usefully here
+    addiu   a1, a1, %lo(__heap_end)    # (delay slot)
 
     jal     _ds2_init
     nop                                # cannot delay usefully here
