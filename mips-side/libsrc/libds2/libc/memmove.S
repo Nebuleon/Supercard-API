@@ -68,16 +68,17 @@ F:
     beq     t2, t3, Fbs                # the gap is 1 byte; go copy bytes
     sltiu   t7, t2, 4                  # (delay slot) gap = 2..3 bytes?
     bne     t7, zero, Fh_bp            # yes; go copy halfwords
-    nop                                # cannot delay usefully here
+    li      t5, ~0x3                   # (delay slot) mask to align to words
 
 Fw_bp:
     # Store, in t7, the end of the byte prefix, so that we can find the end
     # with BNE.
     addiu   t7, a0, 3
-    srl     t7, t7, 2
-    sll     t7, t7, 2
+    and     t7, t7, t5
     beq     a0, t7, Fw                 # no misalignment in the word?
-    srl     t8, t0, 2                  # (delay slot) [see Fw for comments]
+    # If misalignments mismatch, we will need to use unaligned loads.
+    # Currently, a0 is aligned.
+    andi    t4, a1, 0x3                # (delay slot)
 1:  lbu     t3, 0(a1)
     # Let the load complete in parallel with these.
     addiu   a0, a0, 1
@@ -87,13 +88,10 @@ Fw_bp:
     sb      t3, -1(a0)                 # (delay slot)
 
 Fw:
-    # If misalignments mismatch, we need to use unaligned loads.
-    # Currently, a0 is aligned.
-    andi    t4, a1, 0x3
     beq     t4, zero, Fwa
     # Store, in t8, the end of the portion we can store as whole words, so
-    # that we can find the end with BNE. (Part of this was done by Fw_bp.)
-    sll     t8, t8, 2                  # (delay slot)
+    # that we can find the end with BNE.
+    and     t8, t0, t5                 # (delay slot)
 
 Fwu:
     ulw     t3, 0(a1)
@@ -168,13 +166,12 @@ B:
     beq     t2, t3, Bbs                # the gap is 1 byte; go copy bytes
     sltiu   t7, t2, 4                  # (delay slot) gap = 2..3 bytes?
     bne     t7, zero, Bh_bp            # yes; go copy halfwords
-    nop                                # cannot delay usefully here
+    li      t5, ~0x3                   # (delay slot) mask to align to words
 
 Bw_bp:
     # Store, in t7, the beginning of the byte prefix, so that we can find it
     # with BNE.
-    srl     t7, t0, 2
-    sll     t7, t7, 2
+    and     t7, t0, t5
     beq     t0, t7, Bw                 # no misalignment in the word?
     addiu   t8, a0, 3                  # (delay slot) [see Bw for comments]
 3:  lbu     t3, -1(t1)
@@ -189,11 +186,10 @@ Bw:
     # If misalignments mismatch, we need to use unaligned loads.
     # Currently, t0 is aligned.
     andi    t4, t1, 0x3
+    beq     t4, zero, Bwa
     # Store, in t8, the beginning of the portion we can store as whole words,
     # so that we can find it with BNE. (Part of this was done by Bw_bp.)
-    srl     t8, t8, 2
-    beq     t4, zero, Bwa
-    sll     t8, t8, 2                  # (delay slot)
+    and     t8, t8, t5                 # (delay slot)
 
 Bwu:
     ulw     t3, -4(t1)
