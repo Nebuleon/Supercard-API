@@ -49,9 +49,9 @@ memmove:
     # If the source is to the left of the destination, copying forwards would
     # just keep echoing bytes from the beginning of the destination. Copy
     # backwards.
-    sltu    t4, a1, a0                 # (delay slot) t4 = (src < dest)
-    bne     t4, zero, B                # if (src < dest) copy backwards
-    or      v0, a0, zero               # (delay) memmove returns argument 1
+    sltu    v1, a1, a0                 # (delay slot) v1 = (src < dest)
+    bne     v1, zero, B                # if (src < dest) copy backwards
+    move    v0, a0                     # (delay) memmove returns argument 1
 
     # The implementations are named according to the kind of work they do:
     # - F, B: forwards, backwards;
@@ -60,198 +60,198 @@ memmove:
     # - p, s: prefix, suffix.
     # - a_b: 'b' enabling the use of 'a'.
 F:
-    sltiu   t7, a2, 16                 # if we're asked to move fewer than 16
-    bne     t7, zero, Fbs              #   bytes, go copy bytes
-    # t2 gets the gap between the destination and the source.
-    subu    t2, a1, a0                 # (delay slot)
-    li      t3, 1
-    beq     t2, t3, Fbs                # the gap is 1 byte; go copy bytes
-    sltiu   t7, t2, 4                  # (delay slot) gap = 2..3 bytes?
-    bne     t7, zero, Fh_bp            # yes; go copy halfwords
-    li      t5, ~0x3                   # (delay slot) mask to align to words
+    sltiu   v1, a2, 16                 # if we're asked to move fewer than 16
+    bne     v1, zero, Fbs              #   bytes, go copy bytes
+    # v1 gets the gap between the destination and the source.
+    subu    v1, a1, a0                 # (delay slot)
+    li      t2, 1
+    beq     v1, t2, Fbs                # the gap is 1 byte; go copy bytes
+    sltiu   v1, v1, 4                  # (delay slot) gap = 2..3 bytes?
+    bne     v1, zero, Fh_bp            # yes; go copy halfwords
+    li      t4, ~0x3                   # (delay slot) mask to align to words
 
 Fw_bp:
     # Store, in t7, the end of the byte prefix, so that we can find the end
     # with BNE.
     addiu   t7, a0, 3
-    and     t7, t7, t5
+    and     t7, t7, t4
     beq     a0, t7, Fw                 # no misalignment in the word?
     # If misalignments mismatch, we will need to use unaligned loads.
     # Currently, a0 is aligned.
-    andi    t4, a1, 0x3                # (delay slot)
-1:  lbu     t3, 0(a1)
+    andi    t2, a1, 0x3                # (delay slot)
+1:  lbu     v1, 0(a1)
     # Let the load complete in parallel with these.
     addiu   a0, a0, 1
     addiu   a1, a1, 1
     bne     a0, t7, 1b
     # This store is 0(old a0), but it was advanced above.
-    sb      t3, -1(a0)                 # (delay slot)
+    sb      v1, -1(a0)                 # (delay slot)
 
 Fw:
-    beq     t4, zero, Fwa
+    beq     t2, zero, Fwa
     # Store, in t8, the end of the portion we can store as whole words, so
     # that we can find the end with BNE.
-    and     t8, t0, t5                 # (delay slot)
+    and     t8, t0, t4                 # (delay slot)
 
 Fwu:
-    ulw     t3, 0(a1)
+    ulw     v1, 0(a1)
     # Let the load complete in parallel with these.
     addiu   a0, a0, 4
     addiu   a1, a1, 4
     bne     a0, t8, Fwu
-    sw      t3, -4(a0)                 # (delay slot) store to 0(old a0)
+    sw      v1, -4(a0)                 # (delay slot) store to 0(old a0)
 
     b       Fbs                        # check for any byte suffix
     nop                                # cannot delay usefully here
 
 Fwa:
-    lw      t3, 0(a1)
+    lw      v1, 0(a1)
     # Let the load complete in parallel with these.
     addiu   a0, a0, 4
     addiu   a1, a1, 4
     bne     a0, t8, Fwa
-    sw      t3, -4(a0)                 # (delay slot) store to 0(old a0)
+    sw      v1, -4(a0)                 # (delay slot) store to 0(old a0)
 
     b       Fbs                        # check for any byte suffix
     nop                                # cannot delay usefully here
 
 Fh_bp:
     # If misalignments mismatch, go copy bytes.
-    andi    t3, a0, 0x1
-    andi    t4, a1, 0x1
-    bne     t3, t4, Fbs
+    andi    t2, a0, 0x1
+    andi    t3, a1, 0x1
+    bne     t2, t3, Fbs
     # Store, in t8, the end of the portion we can store as whole halfwords, so
     # that we can find the end with BNE.
     srl     t8, t0, 1                  # (delay slot)
-    beq     t3, zero, Fh
+    beq     t2, zero, Fh
     sll     t8, t8, 1                  # (delay slot)
 
-    lbu     t3, 0(a1)
+    lbu     v1, 0(a1)
     # Let the load complete in parallel with these.
     addiu   a0, a0, 1
     addiu   a1, a1, 1
     # This store is 0(old a0), but it was advanced above.
-    sb      t3, -1(a0)                 # (delay slot)
+    sb      v1, -1(a0)                 # (delay slot)
 
 Fh:
-    lhu     t3, 0(a1)
+    lhu     v1, 0(a1)
     # Let the load complete in parallel with these.
     addiu   a0, a0, 2
     addiu   a1, a1, 2
     bne     a0, t8, Fh
     # This store is 0(old a0), but it was advanced above.
-    sh      t3, -2(a0)                 # (delay slot)
+    sh      v1, -2(a0)                 # (delay slot)
 
 Fbs:
     beq     a0, t0, Fend
     nop                                # cannot delay usefully here
-2:  lbu     t3, 0(a1)
+2:  lbu     v1, 0(a1)
     # Let the load complete in parallel with these.
     addiu   a0, a0, 1
     addiu   a1, a1, 1
     bne     a0, t0, 2b
     # This store is 0(old a0), but it was advanced above.
-    sb      t3, -1(a0)                 # (delay slot)
+    sb      v1, -1(a0)                 # (delay slot)
 
 Fend:
     jr      ra
     nop                                # cannot delay usefully here
 
 B:
-    sltiu   t7, a2, 16                 # if we're asked to move fewer than 16
-    bne     t7, zero, Bbs              #   bytes, go copy bytes
-    # t2 gets the gap between the source and the destination.
-    subu    t2, a0, a1                 # (delay slot)
-    li      t3, 1
-    beq     t2, t3, Bbs                # the gap is 1 byte; go copy bytes
-    sltiu   t7, t2, 4                  # (delay slot) gap = 2..3 bytes?
-    bne     t7, zero, Bh_bp            # yes; go copy halfwords
-    li      t5, ~0x3                   # (delay slot) mask to align to words
+    sltiu   v1, a2, 16                 # if we're asked to move fewer than 16
+    bne     v1, zero, Bbs              #   bytes, go copy bytes
+    # v1 gets the gap between the source and the destination.
+    subu    v1, a0, a1                 # (delay slot)
+    li      t2, 1
+    beq     v1, t2, Bbs                # the gap is 1 byte; go copy bytes
+    sltiu   v1, v1, 4                  # (delay slot) gap = 2..3 bytes?
+    bne     v1, zero, Bh_bp            # yes; go copy halfwords
+    li      t4, ~0x3                   # (delay slot) mask to align to words
 
 Bw_bp:
     # Store, in t7, the beginning of the byte prefix, so that we can find it
     # with BNE.
-    and     t7, t0, t5
+    and     t7, t0, t4
     beq     t0, t7, Bw                 # no misalignment in the word?
     addiu   t8, a0, 3                  # (delay slot) [see Bw for comments]
-3:  lbu     t3, -1(t1)
+3:  lbu     v1, -1(t1)
     # Let the load complete in parallel with these.
     addiu   t0, t0, -1
     addiu   t1, t1, -1
     bne     t0, t7, 3b
     # This store is -1(old t0), but it was decremented above.
-    sb      t3, 0(t0)                  # (delay slot)
+    sb      v1, 0(t0)                  # (delay slot)
 
 Bw:
     # If misalignments mismatch, we need to use unaligned loads.
     # Currently, t0 is aligned.
-    andi    t4, t1, 0x3
-    beq     t4, zero, Bwa
+    andi    t2, t1, 0x3
+    beq     t2, zero, Bwa
     # Store, in t8, the beginning of the portion we can store as whole words,
     # so that we can find it with BNE. (Part of this was done by Bw_bp.)
-    and     t8, t8, t5                 # (delay slot)
+    and     t8, t8, t4                 # (delay slot)
 
 Bwu:
-    ulw     t3, -4(t1)
+    ulw     v1, -4(t1)
     # Let the load complete in parallel with these.
     addiu   t0, t0, -4
     addiu   t1, t1, -4
     bne     t0, t8, Bwu
     # This store is -4(old t0), but it was decremented above.
-    sw      t3, 0(t0)                  # (delay slot)
+    sw      v1, 0(t0)                  # (delay slot)
 
     b       Bbs                        # check for any byte suffix
     nop                                # cannot delay usefully here
 
 Bwa:
-    lw      t3, -4(t1)
+    lw      v1, -4(t1)
     # Let the load complete in parallel with these.
     addiu   t0, t0, -4
     addiu   t1, t1, -4
     bne     t0, t8, Bwa
     # This store is -4(old t0), but it was decremented above.
-    sw      t3, 0(t0)                  # (delay slot)
+    sw      v1, 0(t0)                  # (delay slot)
 
     b       Bbs                        # check for any byte suffix
     nop                                # cannot delay usefully here
 
 Bh_bp:
     # If misalignments mismatch, go copy bytes.
-    andi    t3, t0, 0x1
-    andi    t4, t1, 0x1
-    bne     t3, t4, Bbs
+    andi    t2, t0, 0x1
+    andi    t3, t1, 0x1
+    bne     t2, t3, Bbs
     # Store, in t8, the beginning of the portion we can store as whole
     # halfwords, so that we can find it with BNE.
     addiu   t8, a0, 1                  # (delay slot)
     srl     t8, t8, 1
-    beq     t3, zero, Bh
+    beq     t2, zero, Bh
     sll     t8, t8, 1                  # (delay slot)
 
-    lbu     t3, -1(t1)
+    lbu     v1, -1(t1)
     # Let the load complete in parallel with these.
     addiu   t0, t0, -1
     addiu   t1, t1, -1
     # This store is -1(old t0), but it was decremented above.
-    sb      t3, 0(t0)                  # (delay slot)
+    sb      v1, 0(t0)                  # (delay slot)
 
 Bh:
-    lhu     t3, -2(t1)
+    lhu     v1, -2(t1)
     # Let the load complete in parallel with these.
     addiu   t0, t0, -2
     addiu   t1, t1, -2
     bne     t0, t8, Bh
     # This store is -2(old t0), but it was decremented above.
-    sh      t3, 0(t0)                  # (delay slot)
+    sh      v1, 0(t0)                  # (delay slot)
 
 Bbs:
     beq     t0, a0, Bend
     nop                                # cannot delay usefully here
-4:  lbu     t3, -1(t1)
+4:  lbu     v1, -1(t1)
     # Let the load complete in parallel with these.
     addiu   t0, t0, -1
     addiu   t1, t1, -1
     bne     t0, a0, 4b
-    sb      t3, 0(t0)                  # (delay slot)
+    sb      v1, 0(t0)                  # (delay slot)
 
 Bend:
     jr      ra

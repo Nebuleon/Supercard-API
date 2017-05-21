@@ -59,7 +59,7 @@ setjmp:
     sw      $30, 40(a0)
 
     jr      ra
-    or      v0, zero, zero             # (delay slot) this returns 0
+    move    v0, zero                   # (delay slot) this returns 0
 
     .end     setjmp
 

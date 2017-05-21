@@ -66,17 +66,17 @@ _unhandled_exception_save:
     sw      $24, 108(sp)
     sw      $25, 112(sp)
 
-    mfc0    t4, C0_Cause
-    mfc0    t5, C0_Status
-    mfc0    t6, C0_EPC
+    mfc0    v0, C0_Cause
+    mfc0    v1, C0_Status
+    mfc0    t2, C0_EPC
 
     # These instructions are now very far away from anything that could have
     # caused writes to HI and LO.
     mfhi    t0                         # [while MFC0s run]
     mflo    t1
-    sw      t5,  140(sp)               # [while MFHI/MFLO run]
-    sw      t6,  144(sp)
-    andi    t4, t4, 0x1F << 2          # keep only excode from C0 Cause
+    sw      v1,  140(sp)               # [while MFHI/MFLO run]
+    sw      t2,  144(sp)
+    andi    v0, v0, 0x1F << 2          # keep only excode from C0 Cause
 
     sw      t0,  132(sp)               # save HI
     sw      t1,  136(sp)               # save LO
@@ -84,9 +84,9 @@ _unhandled_exception_save:
     # Since the code that will send the exception report to the DS needs to
     # run with interrupts enabled, we set EPC to its address and return from
     # exception.
-    la      t6, _unhandled_exception
-    mtc0    t6, C0_EPC
-    srl     a0, t4, 2                  # with the exception code as argument 1
+    la      t2, _unhandled_exception
+    mtc0    t2, C0_EPC
+    srl     a0, v0, 2                  # with the exception code as argument 1
     addiu   a1, sp, 16                 # and the saved registers as argument 2
     eret
 
@@ -142,18 +142,18 @@ _c_exception_save:
 
     # These instructions are now very far away from anything that could have
     # caused writes to HI and LO.
-    mfhi    t0
-    mflo    t1
-    la      t2, _exception_data        # [while MFHI/MFLO run]
-    addu    t2, t2, k1                 # t2 = &_exception_data[excode]
-    lw      t2, 0(t2)                  # t2 = _exception_data[excode]
+    mfhi    v1
+    mflo    t0
+    la      v0, _exception_data        # [while MFHI/MFLO run]
+    addu    v0, v0, k1                 # v0 = &_exception_data[excode]
+    lw      v0, 0(v0)                  # v0 = _exception_data[excode]
     srl     a0, k1, 2                  # argument 1 = exception code
     addiu   a1, sp, 16                 # argument 2 = saved registers
 
-    sw      t0,  132(sp)               # save HI
+    sw      v1,  132(sp)               # save HI
 
-    jalr    t2
-    sw      t1,  136(sp)               # (delay slot) save LO
+    jalr    v0
+    sw      t0,  136(sp)               # (delay slot) save LO
 
     # Restore the (possibly modified) values of MIPS integer registers.
 

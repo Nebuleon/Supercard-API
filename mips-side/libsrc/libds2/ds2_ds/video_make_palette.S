@@ -62,29 +62,29 @@ _make_palette:
     sw      ra, 4112(sp)
     sw      s0, 4116(sp)
 
-    or      s0, a0, zero               # preserve argument 1 in s0
+    move    s0, a0                     # preserve argument 1 in s0
 
     addiu   a0, sp, 16
-    or      a1, zero, zero
+    move    a1, zero
     jal     memset                     # memset(filter, 0, sizeof(filter));
-    ori     a2, zero, 4096
+    li      a2, 4096
 
-    or      v0, zero, zero
+    move    v0, zero
     li      a1, DS_SCREEN_WIDTH * DS_SCREEN_HEIGHT
     addiu   v1, sp, 16
-    ori     a2, zero, 1
 
     sll     t9, a1, 1                  # _video_main is 16-bit elements
     mul     t8, s0, t9
     la      t7, _video_main
     addu    a0, t7, t8
+    li      t9, 1
 
     # Register assignment:
     # v0: Palette entry count
     # v1: Palette filter
     # a0: Current source pixel pointer
     # a1: Number of remaining pixels
-    # a2: Constant 1
+    # t9: Constant 1
     # s0: Main Screen buffer
 
     # Implementation considerations:
@@ -112,7 +112,7 @@ read_loop:
     lbu     t5, 0(t4)                  # and grab the byte itself
     # Let these complete in parallel with the load.
     andi    t6, t0, 0x7                # get the bit to look up in the byte
-    sllv    t6, a2, t6                 # raise a set bit to that position
+    sllv    t6, t9, t6                 # raise a set bit to that position
     or      t7, t5, t6                 # set that bit in the byte
     sltu    t6, t5, t7                 # 1 if a new bit was set (t7 > t5)
     sb      t7, 0(t4)                  # (delay slot) store the new byte
@@ -126,7 +126,7 @@ pixel_b:
     addu    t4, v1, t4
     lbu     t5, 0(t4)
     andi    t6, t1, 0x7
-    sllv    t6, a2, t6
+    sllv    t6, t9, t6
     or      t7, t5, t6
     sltu    t6, t5, t7
     sb      t7, 0(t4)
@@ -138,7 +138,7 @@ pixel_c:
     addu    t4, v1, t4
     lbu     t5, 0(t4)
     andi    t6, t2, 0x7
-    sllv    t6, a2, t6
+    sllv    t6, t9, t6
     or      t7, t5, t6
     sltu    t6, t5, t7
     sb      t7, 0(t4)
@@ -150,7 +150,7 @@ pixel_d:
     addu    t4, v1, t4
     lbu     t5, 0(t4)
     andi    t6, t3, 0x7
-    sllv    t6, a2, t6
+    sllv    t6, t9, t6
     or      t7, t5, t6
     sltu    t6, t5, t7
     sb      t7, 0(t4)
@@ -176,10 +176,9 @@ read_loop_trailer:
     la      t7, _video_main_rev_palettes
     addu    a3, t7, t8
 
-    or      a0, zero, zero
-    or      a2, zero, zero
+    move    a0, zero
+    move    a2, zero
     addiu   t0, v1, 4096
-    ori     t9, zero, 1
 
     # Register assignment:
     # v0: Palette entry count
@@ -229,6 +228,6 @@ end:
 fail:
     # There were too many unique colors in the image. Bail out.
     b       end
-    or      v0, zero, zero             # (delay slot)
+    move    v0, zero                   # (delay slot)
 
     .end     _make_palette

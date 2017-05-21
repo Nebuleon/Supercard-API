@@ -41,14 +41,14 @@
      *   Argument 1.
      */
 strcpy:
-    or      v0, a0, zero               # set the return value
+    move    v0, a0                     # set the return value
 
-1:  lbu     t0, 0(a1)
+1:  lbu     v1, 0(a1)
     # Let the load complete in parallel with these.
     addiu   a0, a0, 1
     addiu   a1, a1, 1
-    bne     t0, zero, 1b               # not the zero byte yet: goto 1:
-    sb      t0, -1(a0)                 # (delay slot) store to 0(old a0)
+    bne     v1, zero, 1b               # not the zero byte yet: goto 1:
+    sb      v1, -1(a0)                 # (delay slot) store to 0(old a0)
 
     jr      ra
     nop                                # cannot delay usefully here

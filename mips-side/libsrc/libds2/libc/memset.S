@@ -42,9 +42,9 @@ memset:
     # If we're asked to set fewer than 32 bytes, it's more efficient to just
     # set bytes than to compute word setting, prefix misalignment and the
     # size of the suffix.
-    or      v0, a0, zero
-    sltiu   t0, a2, 32
-    bne     t0, zero, suffix
+    move    v0, a0
+    sltiu   v1, a2, 32
+    bne     v1, zero, suffix
     addu    a3, a0, a2                 # (delay slot) a3 = end (exclusive bound)
 
     andi    a1, a1, 0xFF
@@ -53,25 +53,25 @@ memset:
     sll     t0, a1, 16
 
     # Here, it's 32 bytes or more. Is it 512 bytes or more, too?
-    sltiu   t1, a2, 512
-    beq     t1, zero, 5f               # yes: go to the cache-line version
+    sltiu   v1, a2, 512
+    beq     v1, zero, 5f               # yes: go to the cache-line version
     or      a1, a1, t0                 # (delay slot) ... and now 4 copies
 
-    andi    t0, a0, 0x3                # t0 = misalignment in 'dst'
-    beq     t0, zero, words
-    subu    t0, a0, t0                 # (delay slot) delete the misalignment
-    addiu   t0, t0, 4                  # add 4; that's where the prefix ends
+    andi    v1, a0, 0x3                # v1 = misalignment in 'dst'
+    beq     v1, zero, words
+    subu    v1, a0, v1                 # (delay slot) delete the misalignment
+    addiu   v1, v1, 4                  # add 4; that's where the prefix ends
 
 1:  addiu   a0, a0, 1
-    bne     a0, t0, 1b
+    bne     a0, v1, 1b
     sb      a1, -1(a0)                 # (delay slot) store to 0(old a0)
 
 words:
-    srl     t0, a3, 2                  # store in t0 the end of aligned words,
-    sll     t0, t0, 2                  # so we can find the end with BNE
+    srl     v1, a3, 2                  # store in v1 the end of aligned words,
+    sll     v1, v1, 2                  # so we can find the end with BNE
 
 2:  addiu   a0, a0, 4
-    bne     a0, t0, 2b
+    bne     a0, v1, 2b
     sw      a1, -4(a0)                 # (delay slot) store to 0(old a0)
 
 suffix:
@@ -86,18 +86,18 @@ suffix:
 
 5:  # Now prepare to memset entire cache lines. The misalignment is calculated
     # relative to cache lines here.
-    andi    t0, a0, 0x1F               # t0 = misalignment in 'dst'
-    beq     t0, zero, lines
-    subu    t0, a0, t0                 # (delay slot) delete the misalignment
-    addiu   t0, t0, 32                 # add this; that's where the prefix ends
+    andi    v1, a0, 0x1F               # v1 = misalignment in 'dst'
+    beq     v1, zero, lines
+    subu    v1, a0, v1                 # (delay slot) delete the misalignment
+    addiu   v1, v1, 32                 # add this; that's where the prefix ends
 
 6:  addiu   a0, a0, 1
-    bne     a0, t0, 6b
+    bne     a0, v1, 6b
     sb      a1, -1(a0)                 # (delay slot) store to 0(old a0)
 
 lines:
-    srl     t0, a3, 5                  # store in t0 the end of cache lines,
-    sll     t0, t0, 5                  # so we can find the end with BNE
+    srl     v1, a3, 5                  # store in v1 the end of cache lines,
+    sll     v1, v1, 5                  # so we can find the end with BNE
 
 7:  pref    30, 0(a0)                  # PrepareForStore: clear a cache line
     addiu   a0, a0, 32                 # without loading data from RAM for it
@@ -108,7 +108,7 @@ lines:
     sw      a1, -16(a0)
     sw      a1, -12(a0)
     sw      a1, -8(a0)
-    bne     a0, t0, 7b
+    bne     a0, v1, 7b
     sw      a1, -4(a0)                 # (delay slot) store to 28(old a0)
 
     b       suffix

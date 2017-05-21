@@ -48,7 +48,7 @@ DS2_FillScreen:
     sw      ra, 20(sp)
     sw      s0, 16(sp)
     jal     DS2_GetScreen
-    or      s0, a1, zero               # (delay slot) grab 'color' in s0
+    move    s0, a1                     # (delay slot) grab 'color' in s0
 
     andi    a1, s0, 0xFFFF             # ensure 'color' is 16-bit
     lw      ra, 20(sp)                 # grab everything from the stack
@@ -56,13 +56,13 @@ DS2_FillScreen:
 
     beq     v0, zero, fail
     addiu   sp, sp, 24                 # (delay slot) adjust the stack
-    sll     t0, a1, 16
-    or      a1, a1, t0                 # make a word full of argument 2
-    li      t0, (DS_SCREEN_WIDTH * DS_SCREEN_HEIGHT * 2) / 32
+    sll     v1, a1, 16
+    or      a1, a1, v1                 # make a word full of argument 2
+    li      v1, (DS_SCREEN_WIDTH * DS_SCREEN_HEIGHT * 2) / 32
 
 1:  pref    30, 0(v0)                  # PrepareForStore: clear a cache line
     addiu   v0, v0, 32                 # without loading data from RAM for it
-    addiu   t0, t0, -1
+    addiu   v1, v1, -1
     sw      a1, -32(v0)
     sw      a1, -28(v0)
     sw      a1, -24(v0)
@@ -70,11 +70,11 @@ DS2_FillScreen:
     sw      a1, -16(v0)
     sw      a1, -12(v0)
     sw      a1, -8(v0)
-    bne     t0, zero, 1b
+    bne     v1, zero, 1b
     sw      a1, -4(v0)                 # (delay slot) store to 28(old v0)
 
     jr      ra
-    or      v0, zero, zero             # (delay slot) return success
+    move    v0, zero                   # (delay slot) return success
 
 fail:
     .set     push

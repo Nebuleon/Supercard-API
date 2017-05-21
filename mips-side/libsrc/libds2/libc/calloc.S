@@ -48,19 +48,19 @@ calloc:
     sw      ra, 16(sp)
     sw      s0, 20(sp)
 
-    mfhi    t0                         # grab the high bits
-    bne     t0, zero, 2f               # overflow occurs if HI != 0
+    mfhi    v1                         # grab the high bits
+    bne     v1, zero, 2f               # overflow occurs if HI != 0
     mflo    a0                         # (delay slot) grab LO into argument 1
 
     # FALLTHROUGH with a0 forwarded from the multiplication.
     jal     malloc
-    or      s0, a0, zero               # (delay slot) save the size for memset
+    move    s0, a0                     # (delay slot) save the size for memset
 
     beq     v0, zero, 1f               # v0 is already NULL; bail out at 1:
-    or      a1, zero, zero             # (delay slot) prepare argument 2
-    or      a0, v0, zero               # forward allocation as argument 1
+    move    a1, zero                   # (delay slot) prepare argument 2
+    move    a0, v0                     # forward allocation as argument 1
     jal     memset                     # memset(allocation, 0, count * size);
-    or      a2, s0, zero               # (delay slot) prepare argument 3
+    move    a2, s0                     # (delay slot) prepare argument 3
 
     # FALLTHROUGH with v0 forwarded from memset.
 1:  lw      ra, 16(sp)
@@ -69,6 +69,6 @@ calloc:
     addiu   sp, sp, 24                 # (delay slot)
 
 2:  b       1b
-    or      v0, zero, zero             # (delay slot) failed: return NULL
+    move    v0, zero                   # (delay slot) failed: return NULL
 
     .end     calloc

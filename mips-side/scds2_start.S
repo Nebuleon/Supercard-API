@@ -55,8 +55,8 @@ _start:
     # Bit 23 = 1: Special interrupt vector (0x8000_0200)
     # Bit 22 = 0: No Watch exception pending
     # Bits 9..8 = 00: No software interrupts pending
-    li      t1, 0x00800000
-    mtc0    t1, C0_Cause
+    li      v0, 0x00800000
+    mtc0    v0, C0_Cause
 
     # In 0x00400000:
     # Bits 31..28 = 0000: Disable access to all coprocessors in user mode
@@ -71,15 +71,15 @@ _start:
     # Bit 2 = 0: Not in error level
     # Bit 1 = 0: Not in exception level
     # Bit 0 = 0: Interrupts disabled
-    li      t0, 0x00400000
-    mtc0    t0, C0_Status
+    li      v0, 0x00400000
+    mtc0    v0, C0_Status
 
     /* Since we are executing from 0x8000_2000, the caches must be initialised
      * already, so skip that initialisation. */
 
     # Initialise the address used by DS2_StartAwait.
-    lui     t7, 0x8000
-    sw      zero, 0x1FFC(t7)
+    lui     v0, 0x8000
+    sw      zero, 0x1FFC(v0)
 
     /* Set up the stack and the GP register, preparing for the jump to C */
     la      gp, _gp
@@ -90,7 +90,7 @@ _start:
     la      a2, __bss_end
     subu    a2, a2, a0                 # count = __bss_end - __bss_start
     jal     memset
-    or      a1, zero, zero             # (delay slot) byte = 0
+    move    a1, zero                   # (delay slot) byte = 0
 
     /* Initialise the heap for malloc, realloc and free. */
     la      a0, __heap_start
@@ -110,29 +110,29 @@ _start:
     /* Call int main(int argc, char** argv). */
     /* TODO Implement an argv protocol */
     jal     malloc
-    ori     a0, zero, 4                # temp = malloc(4)
+    li      a0, 4                      # temp = malloc(4)
 
     beq     v0, zero, exit_fail        # if (temp == NULL) goto exit_fail
-    or      s0, v0, zero               # (delay slot) main() will preserve this
+    move    s0, v0                     # (delay slot) main() will preserve this
 
-    or      a1, v0, zero               # argv = temp
+    move    a1, v0                     # argv = temp
 
     /* "The value of argv[argc] shall be 0." - C99 */
     sw      zero, 0(v0)                # argv[argc] = 0
 
     jal     main
-    or      a0, zero, zero             # (delay slot) argc = 0
+    move    a0, zero                   # (delay slot) argc = 0
 
-    or      s1, v0, zero               # grab the return value from main()
+    move    s1, v0                     # grab the return value from main()
     jal     free
-    or      a0, s0, zero               # (delay slot) free(argv)
+    move    a0, s0                     # (delay slot) free(argv)
 
 2:  j       exit                       # exit(main());
-    or      a0, s1, zero               # (delay slot) argument 1 = return value
+    move    a0, s1                     # (delay slot) argument 1 = return value
 
 exit_fail:
     b       2b
-    ori     s1, zero, 1
+    li      s1, 1
 
     .end     _start
 
@@ -234,7 +234,7 @@ _interrupt_vector:
     pref    30,   40(k0)               # without loading their data from RAM
     pref    30,   72(k0)
     sw      sp,   84(k0)               # Store the old stack pointer
-    or      sp, k0, zero               # Change to the new one
+    move    sp, k0                     # Change to the new one
     # These are the least likely to have been loaded by LB[U]/LH[U]/LW before
     # the code was interrupted. Save them first to give more time for any
     # loads of the others to complete.
@@ -260,11 +260,10 @@ _interrupt_vector:
 
     # These instructions are now very far away from anything that could have
     # caused writes to HI and LO.
-    mfhi    t0                         # [while MFC0s run]
-    mflo    t1
+    mfhi    v0
+    mflo    v1
 
-    sw      t0,   92(sp)               # save HI
-    sw      t1,   96(sp)               # save LO
+    sw      v0,   92(sp)               # save HI
 
     # Saved registers don't need to be saved. We are calling a C function that
     # will preserve their values for the caller (= this code right here). Even
@@ -275,13 +274,13 @@ _interrupt_vector:
 
     # Call the C interrupt handler (with interrupts disabled).
     jal     _irq_handler
-    nop                                # cannot delay usefully here
+    sw      v1,   96(sp)               # (delay slot) save LO
 
     # Code may be awaiting a certain condition to happen at the end of an
     # interrupt (see DS2_StartAwait).
-    lui     t7, 0x8000                 # [while LW t4 and t5 run]
-    lw      t6, 0x1FFC(t7)
-    bne     t6, zero, ret_to_await
+    lui     v0, 0x8000
+    lw      v0, 0x1FFC(v0)
+    bne     v0, zero, ret_to_await
     lw      sp,   84(k0)               # (delay slot) restore stack regardless
 
     # These are the most likely to be needed immediately. Load them first to
@@ -326,7 +325,7 @@ _interrupt_vector:
 ret_to_await:
     # Here, we have code that is awaiting a condition.
     # None of the GPRs' values matter.
-    mtc0    t6, C0_EPC
+    mtc0    v0, C0_EPC
 
     eret
 

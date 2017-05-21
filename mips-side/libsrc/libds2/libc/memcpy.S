@@ -52,9 +52,9 @@ memcpy:
     # All implementations expect to end at a3 (dst + n), an exclusive bound.
     # a) Copying fewer than 16 bytes. Avoid computing too much auxiliary stuff
     #    and just copy bytes.
-    sltiu   t7, a2, 16
-    or      v0, a0, zero               # memcpy returns argument 1
-    bne     t7, zero, bs
+    sltiu   v1, a2, 16
+    move    v0, a0                     # memcpy returns argument 1
+    bne     v1, zero, bs
     addu    a3, a0, a2                 # (delay slot) provide a3 to everyone
 
     # For word and cache line implementations:
@@ -65,12 +65,12 @@ memcpy:
 
     # b) Copying fewer than 256 bytes. We'll copy words, which means we will
     #    dispatch to a word copier, either aligned or unaligned.
-    sltiu   t7, a2, 256
+    sltiu   v1, a2, 256
     addiu   t2, a0, 3
     li      t4, ~3
     and     t2, t2, t4
     andi    t0, a0, 3                  # t0 = misalignment in a0 (dst)
-    bne     t7, zero, w_bp
+    bne     v1, zero, w_bp
     andi    t1, a1, 3                  # (delay slot) same for t1 and a1 (src)
 
     # c) Copying 256 bytes or more. We'll copy cache lines, which means we
@@ -80,12 +80,12 @@ c_wp_bp:
     # ends.
     beq     a0, t2, c_wp               # no byte misalignment?
     addiu   t3, a0, 0x1F               # (delay slot)
-1:  lbu     t5, 0(a1)
+1:  lbu     v1, 0(a1)
     # Let the load complete in parallel with these.
     addiu   a0, a0, 1
     addiu   a1, a1, 1
     bne     a0, t2, 1b
-    sb      t5, -1(a0)                 # (delay slot) store to 0(old a0)
+    sb      v1, -1(a0)                 # (delay slot) store to 0(old a0)
 
 c_wp:
     # For cache line implementations:
@@ -100,12 +100,12 @@ ca_wap:
     # Store, in t8, the end of the portion we can store as whole cache lines,
     # so that we can find the end with BNE.
     and     t8, a3, t9                 # (delay slot)
-2:  lw      t5, 0(a1)
+2:  lw      v1, 0(a1)
     # Let the load complete in parallel with these.
     addiu   a0, a0, 4
     addiu   a1, a1, 4
     bne     a0, t3, 2b
-    sw      t5, -4(a0)                 # (delay slot) store to 0(old a0)
+    sw      v1, -4(a0)                 # (delay slot) store to 0(old a0)
 
 ca:
     pref    4, 0(a1)                   # LoadStreamed: expect this data not to
@@ -139,12 +139,12 @@ was:
     and     t8, a3, t4
     beq     a0, t8, bs                 # we can't copy any words?
     nop                                # cannot delay usefully here
-3:  lw      t5, 0(a1)
+3:  lw      v1, 0(a1)
     # Let the load complete in parallel with these.
     addiu   a0, a0, 4
     addiu   a1, a1, 4
     bne     a0, t8, 3b
-    sw      t5, -4(a0)                 # (delay slot) store to 0(old a0)
+    sw      v1, -4(a0)                 # (delay slot) store to 0(old a0)
 
     b       bs                         # check for any byte suffix
     nop                                # cannot delay usefully here
@@ -154,12 +154,12 @@ cu_wup:
     # Store, in t8, the end of the portion we can store as whole cache lines,
     # so that we can find the end with BNE.
     and     t8, a3, t9                 # (delay slot)
-4:  ulw     t5, 0(a1)
+4:  ulw     v1, 0(a1)
     # Let the load complete in parallel with these.
     addiu   a0, a0, 4
     addiu   a1, a1, 4
     bne     a0, t3, 4b
-    sw      t5, -4(a0)                 # (delay slot) store to 0(old a0)
+    sw      v1, -4(a0)                 # (delay slot) store to 0(old a0)
 
 cu:
     pref    4, 0(a1)                   # LoadStreamed: expect this data not to
@@ -193,12 +193,12 @@ wus:
     and     t8, a3, t4
     beq     a0, t8, bs                 # we can't copy any words?
     nop                                # cannot delay usefully here
-5:  ulw     t5, 0(a1)
+5:  ulw     v1, 0(a1)
     # Let the load complete in parallel with these.
     addiu   a0, a0, 4
     addiu   a1, a1, 4
     bne     a0, t8, 5b
-    sw      t5, -4(a0)                 # (delay slot) store to 0(old a0)
+    sw      v1, -4(a0)                 # (delay slot) store to 0(old a0)
 
     b       bs                         # check for any byte suffix
     nop                                # cannot delay usefully here
@@ -208,46 +208,46 @@ w_bp:
     # Store, in t8, the end of the portion we can store as words, so that we
     # can find the end with BNE. (Part of this was done by w_bp.)
     and     t8, a3, t4                 # (delay slot)
-6:  lbu     t5, 0(a1)
+6:  lbu     v1, 0(a1)
     # Let the load complete in parallel with these.
     addiu   a0, a0, 1
     addiu   a1, a1, 1
     bne     a0, t2, 6b
-    sb      t5, -1(a0)                 # (delay slot) store to 0(old a0)
+    sb      v1, -1(a0)                 # (delay slot) store to 0(old a0)
 
 w:
     beq     t0, t1, wa
     nop                                # cannot delay usefully here
 
 wu:
-    ulw     t5, 0(a1)
+    ulw     v1, 0(a1)
     # Let the load complete in parallel with these.
     addiu   a0, a0, 4
     addiu   a1, a1, 4
     bne     a0, t8, wu
-    sw      t5, -4(a0)                 # (delay slot) store to 0(old a0)
+    sw      v1, -4(a0)                 # (delay slot) store to 0(old a0)
 
     b       bs                         # check for any byte suffix
     nop                                # cannot delay usefully here
 
 wa:
-    lw      t5, 0(a1)
+    lw      v1, 0(a1)
     # Let the load complete in parallel with these.
     addiu   a0, a0, 4
     addiu   a1, a1, 4
     bne     a0, t8, wa
-    sw      t5, -4(a0)                 # (delay slot) store to 0(old a0)
+    sw      v1, -4(a0)                 # (delay slot) store to 0(old a0)
     # Fall through to bs.
 
 bs:
     beq     a0, a3, end
     nop                                # cannot delay usefully here
-7:  lbu     t2, 0(a1)
+7:  lbu     v1, 0(a1)
     # Let the load complete in parallel with these.
     addiu   a0, a0, 1
     addiu   a1, a1, 1
     bne     a0, a3, 7b
-    sb      t2, -1(a0)                 # (delay slot) store to 0(old a0)
+    sb      v1, -1(a0)                 # (delay slot) store to 0(old a0)
 
 end:
     jr      ra

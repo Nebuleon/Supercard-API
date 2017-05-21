@@ -42,13 +42,13 @@
      *   string, which is equal to 'ch'), or NULL if there is no such byte.
      */
 strrchr:
-    or      v0, zero, zero             # starting out, we haven't found 'ch'
+    move    v0, zero                   # starting out, we haven't found 'ch'
     andi    a1, a1, 0xFF               # cast ch to unsigned int
 
-1:  lbu     t0, 0(a0)
-    beq     t0, a1, found              # found a byte equal to 'ch'?
+1:  lbu     v1, 0(a0)
+    beq     v1, a1, found              # found a byte equal to 'ch'?
     addiu   a0, a0, 1                  # (delay slot) advance the pointer
-2:  bne     t0, zero, 1b               # not the zero byte yet: goto 1:
+2:  bne     v1, zero, 1b               # not the zero byte yet: goto 1:
     nop                                # cannot delay usefully here
 
     jr      ra

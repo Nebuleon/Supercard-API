@@ -43,20 +43,20 @@
      *   in 'a'.
      */
 strcmp:
-1:  lbu     t0, 0(a0)
-    lbu     t1, 0(a1)
-    bne     t0, t1, unequal_byte       # found an unequal pair of bytes?
+1:  lbu     v0, 0(a0)
+    lbu     v1, 0(a1)
+    bne     v0, v1, unequal_byte       # found an unequal pair of bytes?
     addiu   a0, a0, 1                  # (delay slot) advance 'a'
     # Here, the bytes are equal. If one of the bytes is zero, then both are;
     # in that case, the strings are equal, and we fall through to return 0.
-    bne     t0, zero, 1b               # both bytes are non-zero: goto 1:
+    bne     v0, zero, 1b               # both bytes are non-zero: goto 1:
     addiu   a1, a1, 1                  # (delay slot) advance 'b'
 
     jr      ra
-    or      v0, zero, zero             # (delay slot) return 0
+    move    v0, zero                   # (delay slot) return 0
 
 unequal_byte:
     jr      ra
-    subu    v0, t0, t1                 # (delay slot) return (int) *a - (int) *b
+    subu    v0, v0, v1                 # (delay slot) return (int) *a - (int) *b
 
     .end     strcmp

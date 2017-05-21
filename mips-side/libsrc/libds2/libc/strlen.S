@@ -37,11 +37,11 @@
      *   The number of bytes before the first zero byte in 's'.
      */
 strlen:
-    or      v0, zero, zero             # start at 0
+    move    v0, zero                   # start at 0
 
-1:  lbu     t0, 0(a0)
+1:  lbu     v1, 0(a0)
     addiu   a0, a0, 1
-    bne     t0, zero, 1b               # not the zero byte yet: goto 1:
+    bne     v1, zero, 1b               # not the zero byte yet: goto 1:
     addiu   v0, v0, 1                  # (delay slot) increment the result
 
     jr      ra

@@ -45,14 +45,14 @@
 strchr:
     andi    a1, a1, 0xFF               # cast ch to unsigned int
 
-1:  lbu     t0, 0(a0)
-    beq     t0, a1, 2f                 # found a byte equal to 'ch': goto 2:
+1:  lbu     v0, 0(a0)
+    beq     v0, a1, 2f                 # found a byte equal to 'ch': goto 2:
     addiu   a0, a0, 1                  # (delay slot) advance the pointer
-    bne     t0, zero, 1b               # not the zero byte yet: goto 1:
+    bne     v0, zero, 1b               # not the zero byte yet: goto 1:
     nop                                # cannot delay usefully here
 
     jr      ra
-    or      v0, zero, zero             # (delay slot) we didn't find anything
+    move    v0, zero                   # (delay slot) we didn't find anything
 
 2:  jr      ra
     # Undo the work of the branch delay slot that brought us here (in another

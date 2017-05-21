@@ -64,7 +64,7 @@ _start:
 
     /* Copy code from the load address to the execution address */
     la      a1, 0x80002000             # from 0x8000_2000
-    or      t1, t6, zero               # to __text_start
+    move    t1, t6                     # to __text_start
     /* [No check for there being no code - we're running some right now!] */
 1:  lw      t2, 0(a1)
     # Let the load complete in parallel with these.
@@ -111,7 +111,7 @@ _start:
     la      a2, __bss_end
     subu    a2, a2, a0                 # count = __bss_end - __bss_start
     jal     memset
-    or      a1, zero, zero             # (delay slot) byte = 0
+    move    a1, zero                   # (delay slot) byte = 0
 
     /* Now that the uninitialised data section is cleared, store the packed
      * and unpacked sizes to memory */

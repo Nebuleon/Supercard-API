@@ -45,65 +45,65 @@ memchr:
     # just search bytes than to compute the search word, prefix misalignment
     # and the size of the suffix.
     andi    a1, a1, 0xFF               # cast ch to unsigned int
-    sltiu   t0, a2, 32
-    bne     t0, zero, suffix
+    sltiu   v0, a2, 32
+    bne     v0, zero, suffix
     addu    a3, a0, a2                 # (delay slot) a3 = end (exclusive bound)
 
     # Create some magic words.
-    # First, in t4, a word that has the byte in a1 repeated 4 times.
-    sll     t4, a1, 8
-    or      t4, t4, a1
-    sll     t5, t4, 16
-    or      t4, t4, t5
-    # Then, words that have the lowest (t5) and highest (t6) bits set in each
+    # First, in t2, a word that has the byte in a1 repeated 4 times.
+    sll     t2, a1, 8
+    or      t2, t2, a1
+    sll     v0, t2, 16
+    or      t2, t2, v0
+    # Then, words that have the lowest (t3) and highest (t4) bits set in each
     # byte, respectively.
-    li      t5, 0x01010101
-    sll     t6, t5, 7
+    li      t3, 0x01010101
+    sll     t4, t3, 7
 
     # Figure out where the byte prefix ends, if any.
-    addiu   t0, a0, 3
+    addiu   v1, a0, 3
     li      t9, ~3
-    and     t0, t0, t9
-    beq     t0, a0, words
+    and     v1, v1, t9
+    beq     v1, a0, words
     nop                                # cannot delay usefully here
 
-1:  lbu     t1, 0(a0)
-    beq     t1, a1, 5f                 # if (*src == (unsigned char) ch) ...
+1:  lbu     v0, 0(a0)
+    beq     v0, a1, 5f                 # if (*src == (unsigned char) ch) ...
     addiu   a0, a0, 1                  # (delay slot)
-    bne     a0, t0, 1b
+    bne     a0, v1, 1b
     nop                                # cannot delay usefully here
 
 words:
-    # Store in t0 the end of aligned words, so we can find the end with BNE.
-    and     t0, a3, t9
+    # Store in v1 the end of aligned words, so we can find the end with BNE.
+    and     v1, a3, t9
 
-2:  lw      t1, 0(a0)
+2:  lw      v0, 0(a0)
     # Detect matches in the word by XORing it with the word full of the search
     # byte; any zero byte in the result indicates a match.
-    xor     t1, t1, t4
+    xor     v0, v0, t2
     # Subtract the low ones. Borrows will make the zero bytes into 0xFF.
-    subu    t2, t1, t5
+    subu    t0, v0, t3
     # Prevent a borrow from creating a false match on the high bit of another
     # byte. Require a match on the high bit again.
-    nor     t3, t1, zero
-    and     t1, t2, t3                 # combine with required matches
-    and     t1, t1, t6                 # only look at the remaining borrows
-    bne     t1, zero, match
+    nor     t1, v0, zero
+    and     v0, t0, t1                 # combine with required matches
+    and     v0, v0, t4                 # only look at the remaining borrows
+    bne     v0, zero, match
     addiu   a0, a0, 4                  # (delay slot)
-    bne     a0, t0, 2b
+    bne     a0, v1, 2b
     nop                                # cannot delay usefully here
 
 suffix:
     beq     a0, a3, 4f
     nop                                # cannot delay usefully here
-3:  lbu     t1, 0(a0)
-    beq     t1, a1, 5f                 # if (*src == (unsigned char) ch) ...
+3:  lbu     v0, 0(a0)
+    beq     v0, a1, 5f                 # if (*src == (unsigned char) ch) ...
     addiu   a0, a0, 1                  # (delay slot)
     bne     a0, a3, 3b
     nop                                # cannot delay usefully here
 
 4:  jr      ra
-    or      v0, zero, zero             # (delay slot) not found: return NULL
+    move    v0, zero                   # (delay slot) not found: return NULL
 
 5:  jr      ra
     # We came here from a delay slot that advanced a0 past the byte matching

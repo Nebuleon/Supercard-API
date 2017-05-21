@@ -35,9 +35,9 @@
      * handler can return there multiple times.
      */
 DS2_StartAwait:
-    lui     t0, 0x8000
+    lui     v0, 0x8000
     jr      ra
-    sw      ra, 0x1FFC(t0)
+    sw      ra, 0x1FFC(v0)
 
     .end     DS2_StartAwait
 
@@ -53,8 +53,8 @@ DS2_StartAwait:
      * resume normal operation.
      */
 DS2_StopAwait:
-    lui     t0, 0x8000
+    lui     v0, 0x8000
     jr      ra
-    sw      zero, 0x1FFC(t0)
+    sw      zero, 0x1FFC(v0)
 
     .end     DS2_StopAwait

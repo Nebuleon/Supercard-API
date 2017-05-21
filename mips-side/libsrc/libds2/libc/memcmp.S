@@ -45,8 +45,8 @@ memcmp:
     # If we're asked to compare fewer than 16 bytes, it's more efficient to
     # just compare bytes than to compute the misalignment mismatch, prefix
     # size and suffix size.
-    sltiu   t0, a2, 16
-    bne     t0, zero, suffix
+    sltiu   v0, a2, 16
+    bne     v0, zero, suffix
     addu    a3, a0, a2                 # (delay slot) a3 = end of a (exclusive bound)
 
     andi    t0, a0, 3                  # t0 = misalignment in a0
@@ -58,40 +58,40 @@ memcmp:
     subu    t1, a0, t1                 # (delay slot) delete the misalignment
     addiu   t1, t1, 4                  # add 4; that's where the prefix ends
 
-1:  lbu     t2, 0(a0)
-    lbu     t3, 0(a1)
-    bne     t2, t3, unequal_byte
+1:  lbu     v0, 0(a0)
+    lbu     v1, 0(a1)
+    bne     v0, v1, unequal_byte
     addiu   a0, a0, 1                  # (delay slot)
     bne     a0, t1, 1b
     addiu   a1, a1, 1                  # (delay slot)
 
 words:
-    srl     t1, a3, 2                  # store in t1 the end of aligned words,
-    sll     t1, t1, 2                  # so we can find the end with BNE
+    srl     t0, a3, 2                  # store in t1 the end of aligned words,
+    sll     t0, t0, 2                  # so we can find the end with BNE
 
-2:  lw      t2, 0(a0)
-    lw      t3, 0(a1)
-    bne     t2, t3, unequal_word
+2:  lw      v0, 0(a0)
+    lw      v1, 0(a1)
+    bne     v0, v1, unequal_word
     addiu   a0, a0, 4                  # (delay slot)
-    bne     a0, t1, 2b
+    bne     a0, t0, 2b
     addiu   a1, a1, 4                  # (delay slot)
 
 suffix:
     beq     a0, a3, 4f
     nop                                # cannot delay usefully here
-3:  lbu     t2, 0(a0)
-    lbu     t3, 0(a1)
-    bne     t2, t3, unequal_byte
+3:  lbu     v0, 0(a0)
+    lbu     v1, 0(a1)
+    bne     v0, v1, unequal_byte
     addiu   a0, a0, 1                  # (delay slot)
     bne     a0, a3, 3b
     addiu   a1, a1, 1                  # (delay slot)
 
 4:  jr      ra
-    or      v0, zero, zero             # (delay slot) all bytes are equal
+    move    v0, zero                   # (delay slot) all bytes are equal
 
 unequal_byte:
     jr      ra
-    subu    v0, t2, t3                 # (delay slot) compute the difference
+    subu    v0, v0, v1                 # (delay slot) compute the difference
 
 unequal_word:
     # Jump ahead of the part of 'suffix' that checks whether a0 == a3, because
