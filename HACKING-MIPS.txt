@@ -86,10 +86,14 @@ Here's how you'll build this toolchain.
  $ cd <scds2 toolchain directory>
  $ find . -print0 | LC_ALL=C sort -z | tar --owner=root --group=root --numeric-owner --no-recursion --null -T - -cvjf $HOME/scds2-gcc-VERSION.tar.bz2
 
--- Step 3: Rebuilding libraries --
+-- Step 3: Rebuilding libraries and tools --
 
-After changes to the source code under mips-side/libsrc/, run this command in the mips-side directory:
+After changes to the source code under mips-side/libsrc/ or mips-side/toolsrc/, run this command in the mips-side directory:
 
   $ make clean; make install
 
-The final products of the build, which are static libraries (*.a), will be copied to $SCDS2_TOOLS/lib/.
+The final products of the build will be copied to the appropriate sub-directories of $SCDS2_TOOLS:
+
+- static libraries (*.a) are copied to $SCDS2_TOOLS/lib/;
+
+- executable tools for the native host are copied to $SCDS2_TOOLS/tools/.
