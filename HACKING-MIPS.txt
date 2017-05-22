@@ -40,7 +40,7 @@ Here's how you'll build this toolchain.
 
 1. Install crosstool-ng (at any path) as outlined in the following page:
 
-   http://crosstool-ng.org/#using_a_released_version
+   http://crosstool-ng.github.io/docs/install/
 
    The instructions call for using './configure' with a certain installation path. Remember this path. It's referenced below as <install>.
 
