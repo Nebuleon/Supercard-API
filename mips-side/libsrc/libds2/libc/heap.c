@@ -124,7 +124,7 @@ static struct chunk* newly_used(struct chunk* chunk)
  */
 static struct chunk* split(struct chunk* chunk, size_t n, enum half half)
 {
-	if (chunk->size >= n + sizeof(struct chunk) + 4) {
+	if (chunk != NULL && chunk->size >= n + sizeof(struct chunk) + 4) {
 		/* There is enough space left after this allocation to split the chunk
 		 * into two and leave a meaningful second half marked as free. */
 		struct chunk* part = (struct chunk*) ((uint8_t*) data_for(chunk) + n);
