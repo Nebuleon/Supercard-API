@@ -17,66 +17,106 @@ SECTIONS
 		__text_start = ABSOLUTE(.); /* Start of code */
 
 		KEEP(*scds2_start.o(.text*))
-		*(.text*)
-		*(.gnu.linkonce.*)
-		*(__libc*)
+		*(.text .text.*)
+		*(.gnu.linkonce.t.*)
 
 		__text_end = ABSOLUTE(.); /* End of code */
 	} > ram
 
 	/**** Read-only data ****/
+	__rodata_start = ABSOLUTE(.); /* Start of read-only data */
 
 	.rodata BLOCK(8) :
 	{
-		__rodata_start = ABSOLUTE(.); /* Start of read-only data */
-
-		*(.rodata*)
-
-		__rodata_end = ABSOLUTE(.);
+		*(SORT_BY_ALIGNMENT(SORT_BY_NAME(.rodata)))
+		*(SORT_BY_ALIGNMENT(SORT_BY_NAME(.rodata.*)))
+		*(SORT_BY_ALIGNMENT(SORT_BY_NAME(.gnu.linkonce.r.*)))
 	} > ram
+
+	__rodata_end = ABSOLUTE(.);
+
+	__data_start = ABSOLUTE(.); /* Start of initialised data */
 
 	/**** Initialised data ****/
 	.data BLOCK(8) :
 	{
-		__data_start = ABSOLUTE(.); /* Start of initialised data */
-
-		*(.data*)
-		*(.eh_frame*)
-		*(.gcc_except_table*)
-
-		. = ALIGN(4);
-		__CTOR_LIST__ = ABSOLUTE(.);
-		KEEP(*(SORT(.ctors*)))
-		__CTOR_END__ = ABSOLUTE(.);
-		__DTOR_LIST__ = ABSOLUTE(.);
-		KEEP(*(SORT(.dtors*)))
-		__DTOR_END__ = ABSOLUTE(.);
-
-		. = ALIGN(8);
-		/* Make _gp able to refer to about 64 KiB of data, not just the 32 KiB
-		 * after this. */
-		_gp = ABSOLUTE(ALIGN(16) + 0x7FF0); /* Base of small data */
-
-		*(.lit8)
-		*(.lit4)
-		*(.sdata)
-
-		. = ALIGN(8);
-		__data_end = ABSOLUTE(.); /* End of initialised data */
+		*(SORT_BY_ALIGNMENT(SORT_BY_NAME(.data)))
+		*(SORT_BY_ALIGNMENT(SORT_BY_NAME(.data.*)))
+		*(SORT_BY_ALIGNMENT(SORT_BY_NAME(.gnu.linkonce.d.*)))
 	} > ram
+
+	.eh_frame BLOCK(4) :
+	{
+		*(.eh_frame*)
+	} > ram
+
+	.gcc_except_table BLOCK(4) :
+	{
+		*(.gcc_except_table*)
+	} > ram
+
+	__CTOR_LIST__ = ABSOLUTE(.);
+
+	.ctors BLOCK(4) :
+	{
+		KEEP(*(SORT(.ctors.*)))
+		KEEP(*(.ctors))
+	} > ram
+
+	__CTOR_END__ = ABSOLUTE(.);
+
+	__DTOR_LIST__ = ABSOLUTE(.);
+
+	.dtors BLOCK(4) :
+	{
+		KEEP(*(SORT(.dtors.*)))
+		KEEP(*(.dtors))
+	} > ram
+
+	__DTOR_END__ = ABSOLUTE(.);
+
+	/* Make _gp able to refer to about 64 KiB of data, not just the 32 KiB
+	 * after this. */
+	_gp = ABSOLUTE(ALIGN(16) + 0x7FF0); /* Base of small data */
+
+	.lit8 BLOCK(8) :
+	{
+		*(.lit8)
+	} > ram
+
+	.lit4 BLOCK(4) :
+	{
+		*(.lit4)
+	} > ram
+
+	.sdata BLOCK(8) :
+	{
+		*(SORT_BY_ALIGNMENT(SORT_BY_NAME(.sdata)))
+		*(SORT_BY_ALIGNMENT(SORT_BY_NAME(.sdata.*)))
+		*(SORT_BY_ALIGNMENT(SORT_BY_NAME(.gnu.linkonce.s.*)))
+		. = ALIGN(8);
+	} > ram
+
+	__data_end = ABSOLUTE(.); /* End of initialised data */
 
 	/**** Uninitialised data ****/
 	__bss_start = ABSOLUTE(.); /* Start of uninitialised data to be zeroed */
+
 	.sbss :
 	{
-		*(.sbss)
-		*(.scommon)
+		*(SORT_BY_ALIGNMENT(SORT_BY_NAME(.sbss)))
+		*(SORT_BY_ALIGNMENT(SORT_BY_NAME(.sbss.*)))
+		*(SORT_BY_ALIGNMENT(SORT_BY_NAME(.gnu.linkonce.sb.*)))
+		*(SORT_BY_ALIGNMENT(SORT_BY_NAME(.scommon)))
+		*(SORT_BY_ALIGNMENT(SORT_BY_NAME(.scommon.*)))
 	}
 
 	.bss :
 	{
-		*(.bss)
-		*(COMMON)
+		*(SORT_BY_ALIGNMENT(SORT_BY_NAME(.bss)))
+		*(SORT_BY_ALIGNMENT(SORT_BY_NAME(.bss.*)))
+		*(SORT_BY_ALIGNMENT(SORT_BY_NAME(.gnu.linkonce.b.*)))
+		*(SORT_BY_ALIGNMENT(SORT_BY_NAME(COMMON)))
 	}
 
 	. = ALIGN(4);
