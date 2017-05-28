@@ -73,6 +73,8 @@ extern char* strrchr(const char* s, int ch) __attribute__((nonnull, pure));
 
 extern size_t strspn(const char* haystack, const char* needle) __attribute__((nonnull, pure));
 
+extern char* strstr(const char* haystack, const char* needle) __attribute__((nonnull, pure));
+
 extern char* strtok(char* restrict haystack, const char* restrict needle) __attribute__((nonnull));
 
 #endif /* !__STRING_H__ */
