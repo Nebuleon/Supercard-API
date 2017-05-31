@@ -42,11 +42,88 @@
     .extern  _unhandled_exception_save
     .extern  _irq_handler
 
+# A macro after which execution is sent to the next instruction in the file,
+# but in KSEG0 (cached).
+.macro CACHED
+    .set     push
+    .set     noreorder
+    .set     noat
+
+    bal     1f                         # grab the address of the next label 1:
+    lui     AT, 0xDFFF                 # (delay slot) load the mask that sends
+1:  ori     AT, AT, 0xFFFF             #   ra into KSEG0
+    addiu   ra, ra, 20                 # skip 5 further instructions after 1:
+    and     ra, ra, AT
+    jr      ra
+    nop                                # cannot delay usefully here
+
+    .set     pop
+.endm
+
+# A macro after which execution is sent to the next instruction in the file,
+# but in KSEG1 (uncached).
+.macro UNCACHED
+    .set     push
+    .set     noreorder
+    .set     noat
+
+    bal     1f                         # grab the address of the next label 1:
+    lui     AT, 0x2000                 # (delay slot) mask that sends to KSEG1
+1:  addiu   ra, ra, 16                 # skip 4 further instructions after 1:
+    or      ra, ra, AT
+    jr      ra
+    nop                                # cannot delay usefully here
+
+    .set     pop
+.endm
+
     .ent     _start
     .global  _start
     .type    _start,@function
 
 _start:
+    # Neb: Plugins have been failing to run seemingly randomly after changes
+    # to the optimisation level or code additions and removals, and it seems
+    # to be related to some lines in the caches being garbage that is deemed
+    # valid.
+    # At least, the very first line in the instruction cache is valid, so we
+    # can use code at 0x8000_2000 to hop to 0xA000_2018 to correct this, and
+    # it won't execute garbage until then, but it'd be great if plugins were
+    # run at 0xA000_2000 to begin with...
+    UNCACHED
+
+    /* Initialise the cache. */
+    # Enable the use of the cache for accesses through KSEG0.
+    li      v0, 3
+    mtc0    v0, C0_Config
+
+    # For each index at 0x8000_0000 + 16 KiB (cache size), write an empty
+    # cache tag to the data cache and the instruction cache.
+    # Important: 0x8000_0000 is not mapped through the MMU. Virtual addresses
+    # can raise exceptions if they're not mapped.
+    li      v0, 0x80000000
+    ori     v1, v0, 0x4000
+    mtc0    zero, C0_TagLo
+    mtc0    zero, C0_TagLo, 2
+    mtc0    zero, C0_TagHi
+    mtc0    zero, C0_TagHi, 2
+
+1:  cache   DCIndexStTag, 0(v0)
+    addiu   v0, v0, 0x20               # cache lines are 32 bytes
+    bne     v0, v1, 1b
+    cache   ICIndexStTag, -0x20(v0)
+
+    sync
+
+    CACHED
+
+    /* Invalidate the BTB */
+    mfc0    v0, C0_Config, 7
+    nop
+    ori     v0, v0, 0x2
+    mtc0    v0, C0_Config, 7
+    nop
+
     /* Initialise Coprocessor 0 registers. */
     mtc0    zero, C0_WatchLo           # reset hardware watchpoints
     mtc0    zero, C0_WatchHi
@@ -73,9 +150,6 @@ _start:
     # Bit 0 = 0: Interrupts disabled
     li      v0, 0x00400000
     mtc0    v0, C0_Status
-
-    /* Since we are executing from 0x8000_2000, the caches must be initialised
-     * already, so skip that initialisation. */
 
     # Initialise the address used by DS2_StartAwait.
     lui     v0, 0x8000
