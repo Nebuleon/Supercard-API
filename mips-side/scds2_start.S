@@ -301,9 +301,12 @@ _general_exception_vector_end:
 _interrupt_vector:
     /* Copied to 0x8000_0200. Next up is: the kernel stack (0x8000_1FE0, going
      * down). */
-    # Prepare the switch to the kernel stack. There's the pointer for
-    # DS2_StartAwait at 0x8000_1FFC.
-    la      k0, 0x80001FE0 - 104
+    # Prepare the switch to the kernel stack. (If we're already handling an
+    # interrupt or exception, sp itself will be below 0x8000_1FE0.)
+    la      k0, 0x80001FE0
+    sltu    k1, sp, k0
+    movn    k0, sp, k1                 # if sp < 0x8000_1FE0, continue with sp
+    addiu   k0, k0, -104               # in either case, reserve 104 bytes
     pref    30,    8(k0)               # PrepareForStore: clear cache lines
     pref    30,   40(k0)               # without loading their data from RAM
     pref    30,   72(k0)

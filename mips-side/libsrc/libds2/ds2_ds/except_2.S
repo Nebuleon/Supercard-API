@@ -83,7 +83,7 @@ _unhandled_exception_save:
 
     # Since the code that will send the exception report to the DS needs to
     # run with interrupts enabled, we set EPC to its address and return from
-    # exception.
+    # exception with the stack still below 0x8000_1FE0.
     la      t2, _unhandled_exception
     mtc0    t2, C0_EPC
     srl     a0, v0, 2                  # with the exception code as argument 1
