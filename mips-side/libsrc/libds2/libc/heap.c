@@ -195,7 +195,7 @@ void* memalign(size_t alignment, size_t n)
 				 * the header up regardless of whether it would be aligned. */
 				uint8_t* aligned = ROUND_UP_PTR(unaligned + sizeof(struct chunk), alignment);
 				if (chunk->size >= n + (aligned - unaligned)) {
-					chunk = split(chunk, (aligned - unaligned) - sizeof(chunk), SECOND);
+					chunk = split(chunk, (aligned - unaligned) - sizeof(struct chunk), SECOND);
 					return data_for(newly_used(split(chunk, n, FIRST)));
 				}
 			} else {
