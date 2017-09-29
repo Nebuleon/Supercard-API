@@ -133,7 +133,7 @@ static void raw_send_command(const union card_command* command, size_t reply_len
 
 	REG_AUXSPICNTH = CARD_CR1_ENABLE | CARD_CR1_IRQ;
 	for (i = 0; i < 8; i++) {
-		CARD_COMMAND[i] = command->bytes[i];
+		REG_CARD_COMMAND[i] = command->bytes[i];
 	}
 	set_reply_len(reply_len);
 
@@ -149,9 +149,9 @@ void raw_send_command_byte(uint8_t byte, size_t reply_len)
 	int i;
 
 	REG_AUXSPICNTH = CARD_CR1_ENABLE | CARD_CR1_IRQ;
-	CARD_COMMAND[0] = byte;
+	REG_CARD_COMMAND[0] = byte;
 	for (i = 1; i < 8; i++) {
-		CARD_COMMAND[i] = 0;
+		REG_CARD_COMMAND[i] = 0;
 	}
 	set_reply_len(reply_len);
 
@@ -192,7 +192,7 @@ uint32_t card_read_word(bool reply_ends)
 {
 	while (!(REG_ROMCTRL & CARD_DATA_READY))
 		lag_check();
-	uint32_t reply = CARD_DATA_RD;
+	uint32_t reply = REG_CARD_DATA_RD;
 #ifdef CARD_PROTOCOL_DIAGNOSTICS
 	subcommand_bytes += 4;
 #endif
@@ -208,7 +208,7 @@ void card_read_data(size_t reply_len, void* reply, bool reply_ends)
 	for (i = 0; i < reply_len / 4; i++) {
 		while (!(REG_ROMCTRL & CARD_DATA_READY))
 			lag_check();
-		reply_words[i] = CARD_DATA_RD;
+		reply_words[i] = REG_CARD_DATA_RD;
 #ifdef CARD_PROTOCOL_DIAGNOSTICS
 		subcommand_bytes += 4;
 #endif
@@ -221,7 +221,7 @@ void card_ignore_reply()
 	uint32_t romctrl;
 	while ((romctrl = REG_ROMCTRL) & CARD_BUSY) {
 		if (romctrl & CARD_DATA_READY) {
-			CARD_DATA_RD;
+			REG_CARD_DATA_RD;
 #ifdef CARD_PROTOCOL_DIAGNOSTICS
 			subcommand_bytes += 4;
 #endif
